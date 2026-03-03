@@ -7,6 +7,7 @@ import {
   LogOut,
   Mail,
   Megaphone,
+  Phone,
   Settings,
   Users,
 } from "lucide-react";
@@ -46,6 +47,12 @@ const navigation: NavigationItem[] = [
     href: "/direct-mail",
     icon: Mail,
     permission: "direct-mail.view",
+  },
+  {
+    name: "VoiceDrop",
+    href: "/voicedrop",
+    icon: Phone,
+    permission: "voicedrop.view",
   },
   {
     name: "Settings",

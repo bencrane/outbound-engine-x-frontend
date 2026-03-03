@@ -10,6 +10,8 @@ export type Permission =
   | "leads.manage"
   | "direct-mail.view"
   | "direct-mail.manage"
+  | "voicedrop.view"
+  | "voicedrop.manage"
   | "settings.view"
   | "settings.manage"
   | "analytics.view"
@@ -27,6 +29,8 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "leads.manage",
     "direct-mail.view",
     "direct-mail.manage",
+    "voicedrop.view",
+    "voicedrop.manage",
     "settings.view",
     "settings.manage",
     "analytics.view",
@@ -39,6 +43,7 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "inbox.view",
     "leads.list",
     "direct-mail.view",
+    "voicedrop.view",
     "settings.view",
     "analytics.view",
   ],
