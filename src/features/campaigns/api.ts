@@ -124,7 +124,7 @@ export interface MultiChannelLeadInput {
   company?: string;
   title?: string;
   phone?: string;
-  step_content?: Record<string, unknown>;
+  step_content?: StepContentOverride[];
 }
 
 export interface LeadProgress {
@@ -137,6 +137,11 @@ export interface LeadProgress {
   completed_at: string | null;
   attempts: number;
   last_error: string | null;
+}
+
+export interface StepContentOverride {
+  step_order: number;
+  action_config_override: Record<string, unknown>;
 }
 
 export const campaignQueryKeys = {
@@ -164,6 +169,8 @@ export const campaignQueryKeys = {
     ["campaigns", campaignId, "lead-progress", filters ?? {}] as const,
   singleLeadProgress: (campaignId: string, leadId: string) =>
     ["campaigns", campaignId, "leads", leadId, "progress"] as const,
+  leadStepContent: (campaignId: string, leadId: string) =>
+    ["campaigns", campaignId, "leads", leadId, "step-content"] as const,
   messagesRecent: (options?: RecentMessagesFilters) =>
     ["campaigns", "messages", "recent", options ?? {}] as const,
 };
@@ -413,6 +420,63 @@ export function useSingleLeadProgress(campaignId: string, leadId: string) {
         throw new Error("Failed to fetch single lead progress.");
       }
       return data as LeadProgress;
+    },
+  });
+}
+
+export async function fetchLeadStepContent(campaignId: string, leadId: string) {
+  const { data, error } = await untypedApiClient.GET(
+    "/api/campaigns/{campaign_id}/leads/{lead_id}/step-content",
+    {
+      params: {
+        path: { campaign_id: campaignId, lead_id: leadId },
+      },
+    }
+  );
+  if (error) {
+    throw new Error("Failed to fetch lead step content.");
+  }
+  return (data ?? []) as StepContentOverride[];
+}
+
+export function useLeadStepContent(campaignId: string, leadId: string) {
+  return useQuery({
+    queryKey: campaignQueryKeys.leadStepContent(campaignId, leadId),
+    enabled: Boolean(campaignId) && Boolean(leadId),
+    queryFn: async () => fetchLeadStepContent(campaignId, leadId),
+  });
+}
+
+export function useSaveLeadStepContent() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      campaignId,
+      leadId,
+      steps,
+    }: {
+      campaignId: string;
+      leadId: string;
+      steps: StepContentOverride[];
+    }) => {
+      const { data, error } = await untypedApiClient.PUT(
+        "/api/campaigns/{campaign_id}/leads/{lead_id}/step-content",
+        {
+          params: {
+            path: { campaign_id: campaignId, lead_id: leadId },
+          },
+          body: { steps },
+        }
+      );
+      if (error) {
+        throw new Error("Failed to save lead step content.");
+      }
+      return (data ?? []) as StepContentOverride[];
+    },
+    onSuccess: async (_, variables) => {
+      await queryClient.invalidateQueries({
+        queryKey: campaignQueryKeys.leadStepContent(variables.campaignId, variables.leadId),
+      });
     },
   });
 }

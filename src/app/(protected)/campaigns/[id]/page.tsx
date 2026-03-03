@@ -17,14 +17,12 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  useActivateCampaign,
   useCampaign,
-  useCampaignLeads,
   useLinkedinCampaign,
   useLinkedinCampaignAction,
-  useMultiChannelSequence,
   useUpdateCampaignStatus,
 } from "@/features/campaigns/api";
+import { ActivationReview } from "@/features/campaigns/components/activation-review";
 import { CampaignLeadsTab } from "@/features/campaigns/components/campaign-leads-tab";
 import { CampaignOverviewTab } from "@/features/campaigns/components/campaign-overview-tab";
 import { CampaignRepliesTab } from "@/features/campaigns/components/campaign-replies-tab";
@@ -49,13 +47,10 @@ export default function CampaignDetailPage() {
   const canManage = usePermission("campaigns.manage");
   const updateStatus = useUpdateCampaignStatus();
   const mutateLinkedinStatus = useLinkedinCampaignAction();
-  const activateCampaign = useActivateCampaign();
-  const [multiActionError, setMultiActionError] = useState<string | null>(null);
+  const [activationReviewOpen, setActivationReviewOpen] = useState(false);
 
   const emailCampaignQuery = useCampaign(campaignId ?? "", !isLinkedin);
   const linkedinCampaignQuery = useLinkedinCampaign(campaignId ?? "", isLinkedin);
-  const multiSequenceQuery = useMultiChannelSequence(campaignId ?? "", isMulti);
-  const multiLeadsQuery = useCampaignLeads(campaignId ?? "", isMulti);
   const campaign = isLinkedin ? linkedinCampaignQuery.data : emailCampaignQuery.data;
   const isLoading = isLinkedin ? linkedinCampaignQuery.isLoading : emailCampaignQuery.isLoading;
   const error = isLinkedin ? linkedinCampaignQuery.error : emailCampaignQuery.error;
@@ -105,32 +100,9 @@ export default function CampaignDetailPage() {
                   isMulti &&
                   campaign.status === "DRAFTED" && (
                     <Button
-                      onClick={() => {
-                        setMultiActionError(null);
-                        const sequenceCount = multiSequenceQuery.data?.length ?? 0;
-                        const leadCount = multiLeadsQuery.data?.length ?? 0;
-                        if (sequenceCount === 0 || leadCount === 0) {
-                          setMultiActionError(
-                            "Activate requires at least one sequence step and one lead."
-                          );
-                          return;
-                        }
-                        activateCampaign.mutate(
-                          { campaignId },
-                          {
-                            onError: () => {
-                              setMultiActionError("Failed to activate campaign.");
-                            },
-                          }
-                        );
-                      }}
-                      disabled={
-                        activateCampaign.isPending ||
-                        multiSequenceQuery.isLoading ||
-                        multiLeadsQuery.isLoading
-                      }
+                      onClick={() => setActivationReviewOpen(true)}
                     >
-                      {activateCampaign.isPending ? "Activating..." : "Activate"}
+                      Activate
                     </Button>
                   )}
                 {canManage && isMulti && campaign.status === "ACTIVE" && (
@@ -213,12 +185,11 @@ export default function CampaignDetailPage() {
               </div>
             </div>
 
-            {(updateStatus.error || mutateLinkedinStatus.error || activateCampaign.error) && (
+            {(updateStatus.error || mutateLinkedinStatus.error) && (
               <p className="mt-2 text-sm text-red-400">
                 Failed to update campaign status.
               </p>
             )}
-            {multiActionError && <p className="mt-2 text-sm text-red-400">{multiActionError}</p>}
 
             <Tabs defaultValue={isMulti ? "sequence" : "overview"} className="mt-6">
               <TabsList>
@@ -281,6 +252,15 @@ export default function CampaignDetailPage() {
                 )
               )}
             </Tabs>
+
+            {isMulti && campaign.status === "DRAFTED" && (
+              <ActivationReview
+                open={activationReviewOpen}
+                onOpenChange={setActivationReviewOpen}
+                campaignId={campaignId}
+                campaignName={campaign.name}
+              />
+            )}
           </>
         )}
       </div>
