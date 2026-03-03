@@ -30,11 +30,16 @@ type VerifyAddressBody =
 type BulkVerifyAddressBody =
   paths["/api/direct-mail/verify-address/us/bulk"]["post"]["requestBody"]["content"]["application/json"];
 
-export function useDirectMailPieces(pieceType: PieceType) {
+export function useDirectMailPieces(
+  pieceType: PieceType,
+  companyId?: string,
+  options?: { enabled?: boolean }
+) {
   return useQuery({
-    queryKey: ["direct-mail", pieceType, "list"],
+    queryKey: ["direct-mail", pieceType, "list", companyId ?? "all"],
+    enabled: options?.enabled ?? true,
     queryFn: async () => {
-      const response = await fetchDirectMailList(pieceType);
+      const response = await fetchDirectMailList(pieceType, companyId);
       if (response.error || !response.data) {
         throw new Error("Failed to fetch direct mail pieces.");
       }
@@ -171,16 +176,25 @@ export function useDirectMailAnalytics(filters?: DirectMailAnalyticsFilters) {
   });
 }
 
-function fetchDirectMailList(pieceType: PieceType) {
+export function fetchDirectMailList(pieceType: PieceType, companyId?: string) {
+  const query = companyId ? { company_id: companyId } : undefined;
   switch (pieceType) {
     case "postcards":
-      return apiClient.GET("/api/direct-mail/postcards");
+      return apiClient.GET("/api/direct-mail/postcards", {
+        params: { query },
+      });
     case "letters":
-      return apiClient.GET("/api/direct-mail/letters");
+      return apiClient.GET("/api/direct-mail/letters", {
+        params: { query },
+      });
     case "self-mailers":
-      return apiClient.GET("/api/direct-mail/self-mailers");
+      return apiClient.GET("/api/direct-mail/self-mailers", {
+        params: { query },
+      });
     case "checks":
-      return apiClient.GET("/api/direct-mail/checks");
+      return apiClient.GET("/api/direct-mail/checks", {
+        params: { query },
+      });
   }
 }
 

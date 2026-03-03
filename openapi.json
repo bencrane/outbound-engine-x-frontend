@@ -2963,6 +2963,124 @@
         }
       }
     },
+    "/api/internal/orchestrator/tick": {
+      "post": {
+        "tags": [
+          "internal-orchestrator"
+        ],
+        "summary": "Run Orchestrator Tick Scheduled",
+        "operationId": "run_orchestrator_tick_scheduled_api_internal_orchestrator_tick_post",
+        "parameters": [
+          {
+            "name": "x-internal-scheduler-secret",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Internal-Scheduler-Secret"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OrchestratorTickRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrchestratorTickResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/internal/orchestrator/tick-manual": {
+      "post": {
+        "tags": [
+          "internal-orchestrator"
+        ],
+        "summary": "Run Orchestrator Tick Manual",
+        "operationId": "run_orchestrator_tick_manual_api_internal_orchestrator_tick_manual_post",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OrchestratorTickRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrchestratorTickResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/inboxes/": {
       "get": {
         "tags": [
@@ -3693,6 +3811,468 @@
                     "$ref": "#/components/schemas/CampaignResponse"
                   },
                   "title": "Response List Campaigns Api Campaigns  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/campaigns/multi-channel": {
+      "post": {
+        "tags": [
+          "campaigns"
+        ],
+        "summary": "Create Multi Channel Campaign",
+        "operationId": "create_multi_channel_campaign_api_campaigns_multi_channel_post",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MultiChannelCampaignCreateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MultiChannelCampaignResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/campaigns/{campaign_id}/multi-channel-sequence": {
+      "get": {
+        "tags": [
+          "campaigns"
+        ],
+        "summary": "Get Multi Channel Sequence",
+        "operationId": "get_multi_channel_sequence_api_campaigns__campaign_id__multi_channel_sequence_get",
+        "parameters": [
+          {
+            "name": "campaign_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Campaign Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SequenceStepResponse"
+                  },
+                  "title": "Response Get Multi Channel Sequence Api Campaigns  Campaign Id  Multi Channel Sequence Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "campaigns"
+        ],
+        "summary": "Upsert Multi Channel Sequence",
+        "operationId": "upsert_multi_channel_sequence_api_campaigns__campaign_id__multi_channel_sequence_put",
+        "parameters": [
+          {
+            "name": "campaign_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Campaign Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MultiChannelSequenceUpsertRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SequenceStepResponse"
+                  },
+                  "title": "Response Upsert Multi Channel Sequence Api Campaigns  Campaign Id  Multi Channel Sequence Put"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/campaigns/{campaign_id}/multi-channel-leads": {
+      "post": {
+        "tags": [
+          "campaigns"
+        ],
+        "summary": "Add Multi Channel Campaign Leads",
+        "operationId": "add_multi_channel_campaign_leads_api_campaigns__campaign_id__multi_channel_leads_post",
+        "parameters": [
+          {
+            "name": "campaign_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Campaign Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CampaignLeadsAddRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CampaignLeadMutationResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/campaigns/{campaign_id}/activate": {
+      "post": {
+        "tags": [
+          "campaigns"
+        ],
+        "summary": "Activate Multi Channel Campaign",
+        "operationId": "activate_multi_channel_campaign_api_campaigns__campaign_id__activate_post",
+        "parameters": [
+          {
+            "name": "campaign_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Campaign Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CampaignActivateResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/campaigns/{campaign_id}/lead-progress": {
+      "get": {
+        "tags": [
+          "campaigns"
+        ],
+        "summary": "List Multi Channel Lead Progress",
+        "operationId": "list_multi_channel_lead_progress_api_campaigns__campaign_id__lead_progress_get",
+        "parameters": [
+          {
+            "name": "campaign_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Campaign Id"
+            }
+          },
+          {
+            "name": "step_status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Step Status"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LeadProgressResponse"
+                  },
+                  "title": "Response List Multi Channel Lead Progress Api Campaigns  Campaign Id  Lead Progress Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/campaigns/{campaign_id}/leads/{lead_id}/progress": {
+      "get": {
+        "tags": [
+          "campaigns"
+        ],
+        "summary": "Get Multi Channel Lead Progress",
+        "operationId": "get_multi_channel_lead_progress_api_campaigns__campaign_id__leads__lead_id__progress_get",
+        "parameters": [
+          {
+            "name": "campaign_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Campaign Id"
+            }
+          },
+          {
+            "name": "lead_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Lead Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeadProgressDetailResponse"
                 }
               }
             }
@@ -10255,6 +10835,40 @@
   },
   "components": {
     "schemas": {
+      "CampaignActivateResponse": {
+        "properties": {
+          "campaign_id": {
+            "type": "string",
+            "title": "Campaign Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "leads_initialized": {
+            "type": "integer",
+            "title": "Leads Initialized"
+          },
+          "first_step_order": {
+            "type": "integer",
+            "title": "First Step Order"
+          },
+          "first_execute_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "First Execute At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "campaign_id",
+          "status",
+          "leads_initialized",
+          "first_step_order",
+          "first_execute_at"
+        ],
+        "title": "CampaignActivateResponse"
+      },
       "CampaignAnalyticsDashboardItem": {
         "properties": {
           "campaign_id": {
@@ -10738,7 +11352,14 @@
             "title": "Company Id"
           },
           "provider_id": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Provider Id"
           },
           "external_campaign_id": {
@@ -10759,6 +11380,11 @@
               "COMPLETED"
             ],
             "title": "Status"
+          },
+          "campaign_type": {
+            "type": "string",
+            "title": "Campaign Type",
+            "default": "single_channel"
           },
           "created_by_user_id": {
             "anyOf": [
@@ -10786,7 +11412,6 @@
         "required": [
           "id",
           "company_id",
-          "provider_id",
           "external_campaign_id",
           "name",
           "status",
@@ -12928,6 +13553,220 @@
         ],
         "title": "LeadCreateInput"
       },
+      "LeadProgressDetailResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "lead_id": {
+            "type": "string",
+            "title": "Lead Id"
+          },
+          "current_step_order": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Current Step Order"
+          },
+          "step_status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "executing",
+              "executed",
+              "skipped",
+              "failed",
+              "completed"
+            ],
+            "title": "Step Status"
+          },
+          "next_execute_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Execute At"
+          },
+          "executed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Executed At"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "attempts": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Attempts",
+            "default": 0
+          },
+          "last_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Error"
+          },
+          "provider_ids": {
+            "items": {
+              "$ref": "#/components/schemas/LeadProviderIdResponse"
+            },
+            "type": "array",
+            "title": "Provider Ids",
+            "default": []
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "lead_id",
+          "current_step_order",
+          "step_status"
+        ],
+        "title": "LeadProgressDetailResponse"
+      },
+      "LeadProgressResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "lead_id": {
+            "type": "string",
+            "title": "Lead Id"
+          },
+          "current_step_order": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Current Step Order"
+          },
+          "step_status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "executing",
+              "executed",
+              "skipped",
+              "failed",
+              "completed"
+            ],
+            "title": "Step Status"
+          },
+          "next_execute_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Execute At"
+          },
+          "executed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Executed At"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "attempts": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Attempts",
+            "default": 0
+          },
+          "last_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Error"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "lead_id",
+          "current_step_order",
+          "step_status"
+        ],
+        "title": "LeadProgressResponse"
+      },
+      "LeadProviderIdResponse": {
+        "properties": {
+          "provider_id": {
+            "type": "string",
+            "title": "Provider Id"
+          },
+          "provider_slug": {
+            "type": "string",
+            "title": "Provider Slug"
+          },
+          "external_id": {
+            "type": "string",
+            "title": "External Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "provider_id",
+          "provider_slug",
+          "external_id"
+        ],
+        "title": "LeadProviderIdResponse"
+      },
       "LinkedinCampaignActionRequest": {
         "properties": {
           "action": {
@@ -13195,7 +14034,14 @@
             "title": "Company Id"
           },
           "provider_id": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Provider Id"
           },
           "external_campaign_id": {
@@ -13216,6 +14062,11 @@
               "COMPLETED"
             ],
             "title": "Status"
+          },
+          "campaign_type": {
+            "type": "string",
+            "title": "Campaign Type",
+            "default": "single_channel"
           },
           "created_by_user_id": {
             "anyOf": [
@@ -13243,7 +14094,6 @@
         "required": [
           "id",
           "company_id",
-          "provider_id",
           "external_campaign_id",
           "name",
           "status",
@@ -13554,6 +14404,201 @@
           "created_at"
         ],
         "title": "MetricsSnapshotRecord"
+      },
+      "MultiChannelCampaignCreateRequest": {
+        "properties": {
+          "campaign_type": {
+            "type": "string",
+            "const": "multi_channel",
+            "title": "Campaign Type",
+            "default": "multi_channel"
+          },
+          "company_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Company Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "MultiChannelCampaignCreateRequest"
+      },
+      "MultiChannelCampaignResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "company_id": {
+            "type": "string",
+            "title": "Company Id"
+          },
+          "provider_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider Id"
+          },
+          "external_campaign_id": {
+            "type": "string",
+            "title": "External Campaign Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "campaign_type": {
+            "type": "string",
+            "title": "Campaign Type"
+          },
+          "created_by_user_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created By User Id"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "company_id",
+          "external_campaign_id",
+          "name",
+          "status",
+          "campaign_type",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "MultiChannelCampaignResponse"
+      },
+      "MultiChannelSequenceUpsertRequest": {
+        "properties": {
+          "steps": {
+            "items": {
+              "$ref": "#/components/schemas/SequenceStepDefinition"
+            },
+            "type": "array",
+            "title": "Steps"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "MultiChannelSequenceUpsertRequest"
+      },
+      "OrchestratorTickRequest": {
+        "properties": {
+          "batch_size": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Batch Size"
+          },
+          "dry_run": {
+            "type": "boolean",
+            "title": "Dry Run",
+            "default": false
+          }
+        },
+        "type": "object",
+        "title": "OrchestratorTickRequest"
+      },
+      "OrchestratorTickResponse": {
+        "properties": {
+          "leads_processed": {
+            "type": "integer",
+            "title": "Leads Processed"
+          },
+          "steps_executed": {
+            "type": "integer",
+            "title": "Steps Executed"
+          },
+          "steps_succeeded": {
+            "type": "integer",
+            "title": "Steps Succeeded"
+          },
+          "steps_retried": {
+            "type": "integer",
+            "title": "Steps Retried"
+          },
+          "steps_failed": {
+            "type": "integer",
+            "title": "Steps Failed"
+          },
+          "leads_completed": {
+            "type": "integer",
+            "title": "Leads Completed"
+          },
+          "dry_run": {
+            "type": "boolean",
+            "title": "Dry Run"
+          },
+          "errors": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Errors"
+          },
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          }
+        },
+        "type": "object",
+        "required": [
+          "leads_processed",
+          "steps_executed",
+          "steps_succeeded",
+          "steps_retried",
+          "steps_failed",
+          "leads_completed",
+          "dry_run",
+          "errors",
+          "enabled"
+        ],
+        "title": "OrchestratorTickResponse"
       },
       "OrgCampaignMessageResponse": {
         "properties": {
@@ -14059,6 +15104,86 @@
         ],
         "title": "ReliabilityByProviderItem"
       },
+      "SequenceStepDefinition": {
+        "properties": {
+          "step_order": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Step Order"
+          },
+          "channel": {
+            "type": "string",
+            "enum": [
+              "email",
+              "linkedin",
+              "direct_mail"
+            ],
+            "title": "Channel"
+          },
+          "action_type": {
+            "type": "string",
+            "enum": [
+              "send_email",
+              "send_connection_request",
+              "send_linkedin_message",
+              "send_postcard",
+              "send_letter"
+            ],
+            "title": "Action Type"
+          },
+          "action_config": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Action Config"
+          },
+          "delay_days": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Delay Days",
+            "default": 0
+          },
+          "execution_mode": {
+            "type": "string",
+            "enum": [
+              "direct_single_touch",
+              "campaign_mediated"
+            ],
+            "title": "Execution Mode",
+            "default": "direct_single_touch"
+          },
+          "skip_if": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Skip If"
+          },
+          "provider_campaign_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider Campaign Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "step_order",
+          "channel",
+          "action_type"
+        ],
+        "title": "SequenceStepDefinition"
+      },
       "SequenceStepPerformanceItem": {
         "properties": {
           "campaign_id": {
@@ -14109,6 +15234,108 @@
           "updated_at"
         ],
         "title": "SequenceStepPerformanceItem"
+      },
+      "SequenceStepResponse": {
+        "properties": {
+          "step_order": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Step Order"
+          },
+          "channel": {
+            "type": "string",
+            "enum": [
+              "email",
+              "linkedin",
+              "direct_mail"
+            ],
+            "title": "Channel"
+          },
+          "action_type": {
+            "type": "string",
+            "enum": [
+              "send_email",
+              "send_connection_request",
+              "send_linkedin_message",
+              "send_postcard",
+              "send_letter"
+            ],
+            "title": "Action Type"
+          },
+          "action_config": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Action Config"
+          },
+          "delay_days": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Delay Days",
+            "default": 0
+          },
+          "execution_mode": {
+            "type": "string",
+            "enum": [
+              "direct_single_touch",
+              "campaign_mediated"
+            ],
+            "title": "Execution Mode",
+            "default": "direct_single_touch"
+          },
+          "skip_if": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Skip If"
+          },
+          "provider_campaign_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider Campaign Id"
+          },
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "provider_id": {
+            "type": "string",
+            "title": "Provider Id"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "step_order",
+          "channel",
+          "action_type",
+          "id",
+          "provider_id",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "SequenceStepResponse"
       },
       "SuperAdminLoginRequest": {
         "properties": {

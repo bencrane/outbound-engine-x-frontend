@@ -2,6 +2,7 @@
 
 import { MoreHorizontal } from "lucide-react";
 import { Fragment, useMemo, useState } from "react";
+import { useQueries } from "@tanstack/react-query";
 
 import { usePermission } from "@/components/gate";
 import { Badge } from "@/components/ui/badge";
@@ -26,6 +27,7 @@ import {
 import {
   useBulkMxHealthcheck,
   useBulkUpdateInboxSignatures,
+  type Inbox,
   useDeleteInboxSenderEmail,
   useDisableInboxWarmup,
   useEnableInboxWarmup,
@@ -36,11 +38,64 @@ import {
 import { InboxBulkActions } from "@/features/settings/components/inbox-bulk-actions";
 import { InboxDetailPanel } from "@/features/settings/components/inbox-detail-panel";
 import { WorkspaceSettingsCard } from "@/features/settings/components/workspace-settings-card";
+import { apiClient } from "@/lib/api-client";
+import { useCompanyContext, useCompanyFilters } from "@/lib/company-context";
 import { formatRelativeTime } from "@/lib/format";
+import { useCompanies } from "@/lib/hooks";
+
+type InboxWithCompanyId = Inbox & { company_id?: string };
 
 export function SettingsSenderAccountsTab() {
   const canManage = usePermission("inboxes.manage");
-  const { data: inboxes = [], isLoading, error } = useInboxes();
+  const { selectedCompanyId } = useCompanyContext();
+  const companyFilters = useCompanyFilters();
+  const { data: companies = [], isLoading: companiesLoading } = useCompanies();
+  const shouldLoadAllCompanies = companyFilters.all_companies === true && selectedCompanyId === null;
+
+  const singleCompanyInboxes = useInboxes(companyFilters.company_id, {
+    enabled: !shouldLoadAllCompanies,
+  });
+
+  const allCompanyInboxes = useQueries({
+    queries: shouldLoadAllCompanies
+      ? companies.map((company) => ({
+          queryKey: ["settings", "inboxes", company.id],
+          queryFn: async () => {
+            const { data, error } = await apiClient.GET("/api/inboxes/", {
+              params: {
+                query: { company_id: company.id },
+              },
+            });
+            if (error) {
+              throw new Error("Failed to load inboxes.");
+            }
+            return (data ?? []) as Inbox[];
+          },
+        }))
+      : [],
+  });
+
+  const inboxes = useMemo<InboxWithCompanyId[]>(() => {
+    if (!shouldLoadAllCompanies) {
+      return (singleCompanyInboxes.data ?? []) as InboxWithCompanyId[];
+    }
+
+    return allCompanyInboxes.flatMap((query, index) => {
+      const company = companies[index];
+      return (query.data ?? []).map((inbox) => ({
+        ...inbox,
+        company_id: company?.id,
+      }));
+    });
+  }, [allCompanyInboxes, companies, shouldLoadAllCompanies, singleCompanyInboxes.data]);
+
+  const isLoading = shouldLoadAllCompanies
+    ? companiesLoading || allCompanyInboxes.some((query) => query.isLoading || query.isFetching)
+    : singleCompanyInboxes.isLoading;
+  const error = shouldLoadAllCompanies
+    ? (allCompanyInboxes.find((query) => query.error)?.error as Error | null) ?? null
+    : ((singleCompanyInboxes.error as Error | null) ?? null);
+
   const enableWarmup = useEnableInboxWarmup();
   const disableWarmup = useDisableInboxWarmup();
   const updateWarmupDailyLimits = useUpdateInboxWarmupDailyLimits();

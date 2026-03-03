@@ -248,11 +248,16 @@ export function useEntitlements() {
   });
 }
 
-export function useInboxes() {
+export function useInboxes(companyId?: string, options?: { enabled?: boolean }) {
   return useQuery({
-    queryKey: ["settings", "inboxes"],
+    queryKey: ["settings", "inboxes", companyId ?? "all"],
+    enabled: options?.enabled ?? true,
     queryFn: async () => {
-      const { data, error } = await apiClient.GET("/api/inboxes/");
+      const { data, error } = await apiClient.GET("/api/inboxes/", {
+        params: {
+          query: companyId ? { company_id: companyId } : undefined,
+        },
+      });
       if (error) throw new Error("Failed to load inboxes.");
       return data ?? [];
     },

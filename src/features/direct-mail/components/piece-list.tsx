@@ -1,6 +1,7 @@
 "use client";
 
-import { Fragment, useState } from "react";
+import { useQueries } from "@tanstack/react-query";
+import { Fragment, useMemo, useState } from "react";
 
 import { usePermission } from "@/components/gate";
 import { Button } from "@/components/ui/button";
@@ -20,13 +21,16 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
+  fetchDirectMailList,
   useCancelDirectMailPiece,
   useDirectMailPieces,
   type PieceType,
 } from "@/features/direct-mail/api";
 import { PieceDetailPanel } from "@/features/direct-mail/components/piece-detail-panel";
 import { PieceStatusBadge } from "@/features/direct-mail/components/piece-status-badge";
+import { useCompanyContext, useCompanyFilters } from "@/lib/company-context";
 import { formatDate } from "@/lib/format";
+import { useCompanies } from "@/lib/hooks";
 
 const statusFilters = [
   "all",
@@ -46,12 +50,44 @@ interface PieceListProps {
 
 export function PieceList({ pieceType }: PieceListProps) {
   const canManage = usePermission("direct-mail.manage");
+  const { selectedCompanyId } = useCompanyContext();
+  const companyFilters = useCompanyFilters();
+  const { data: companies = [], isLoading: companiesLoading } = useCompanies();
+  const shouldLoadAllCompanies = companyFilters.all_companies === true && selectedCompanyId === null;
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [expandedPieceId, setExpandedPieceId] = useState<string | null>(null);
   const cancelPiece = useCancelDirectMailPiece();
-  const { data, isLoading, error } = useDirectMailPieces(pieceType);
+  const singleCompanyPieces = useDirectMailPieces(pieceType, companyFilters.company_id, {
+    enabled: !shouldLoadAllCompanies,
+  });
+  const allCompanyPieces = useQueries({
+    queries: shouldLoadAllCompanies
+      ? companies.map((company) => ({
+          queryKey: ["direct-mail", pieceType, "list", company.id],
+          queryFn: async () => {
+            const response = await fetchDirectMailList(pieceType, company.id);
+            if (response.error || !response.data) {
+              throw new Error("Failed to fetch direct mail pieces.");
+            }
+            return response.data;
+          },
+        }))
+      : [],
+  });
 
-  const pieces = data?.pieces ?? [];
+  const pieces = useMemo(() => {
+    if (!shouldLoadAllCompanies) {
+      return singleCompanyPieces.data?.pieces ?? [];
+    }
+    return allCompanyPieces.flatMap((query) => query.data?.pieces ?? []);
+  }, [allCompanyPieces, shouldLoadAllCompanies, singleCompanyPieces.data?.pieces]);
+
+  const isLoading = shouldLoadAllCompanies
+    ? companiesLoading || allCompanyPieces.some((query) => query.isLoading || query.isFetching)
+    : singleCompanyPieces.isLoading;
+  const error = shouldLoadAllCompanies
+    ? (allCompanyPieces.find((query) => query.error)?.error as Error | null) ?? null
+    : ((singleCompanyPieces.error as Error | null) ?? null);
   const filtered = pieces.filter((piece) =>
     statusFilter === "all" ? true : piece.status === statusFilter
   );
