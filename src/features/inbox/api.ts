@@ -8,6 +8,7 @@ type MessageDirection = "inbound" | "outbound" | null;
 export interface InboxFilters {
   direction?: MessageDirection;
   campaign_id?: string | null;
+  company_id?: string;
   limit?: number;
   offset?: number;
   mine_only?: boolean;
@@ -36,6 +37,9 @@ export function useInboxMessages(filters?: InboxFilters) {
       }
       if (filters?.campaign_id !== undefined) {
         query.campaign_id = filters.campaign_id;
+      }
+      if (filters?.company_id !== undefined) {
+        query.company_id = filters.company_id;
       }
       if (filters?.mine_only !== undefined) {
         query.mine_only = filters.mine_only;
