@@ -3,6 +3,7 @@
 import { ChevronLeft, ChevronDown } from "lucide-react";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
+import { useState } from "react";
 
 import { usePermission } from "@/components/gate";
 import { RouteGuard } from "@/components/route-guard";
@@ -16,15 +17,21 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
+  useActivateCampaign,
   useCampaign,
+  useCampaignLeads,
   useLinkedinCampaign,
   useLinkedinCampaignAction,
+  useMultiChannelSequence,
   useUpdateCampaignStatus,
 } from "@/features/campaigns/api";
 import { CampaignLeadsTab } from "@/features/campaigns/components/campaign-leads-tab";
 import { CampaignOverviewTab } from "@/features/campaigns/components/campaign-overview-tab";
 import { CampaignRepliesTab } from "@/features/campaigns/components/campaign-replies-tab";
 import { CampaignSequenceTab } from "@/features/campaigns/components/campaign-sequence-tab";
+import { LeadProgressTab } from "@/features/campaigns/components/lead-progress-tab";
+import { MultiChannelLeadsTab } from "@/features/campaigns/components/multi-channel-leads-tab";
+import { MultiChannelSequenceEditor } from "@/features/campaigns/components/multi-channel-sequence-editor";
 import { CampaignStatusBadge } from "@/components/shared/campaign-status-badge";
 import { LinkedinLeadsTab } from "@/features/campaigns/components/linkedin-leads-tab";
 import { LinkedinOverviewTab } from "@/features/campaigns/components/linkedin-overview-tab";
@@ -38,12 +45,17 @@ export default function CampaignDetailPage() {
   const campaignId = params?.id;
   const channel = searchParams.get("channel");
   const isLinkedin = channel === "linkedin";
+  const isMulti = channel === "multi";
   const canManage = usePermission("campaigns.manage");
   const updateStatus = useUpdateCampaignStatus();
   const mutateLinkedinStatus = useLinkedinCampaignAction();
+  const activateCampaign = useActivateCampaign();
+  const [multiActionError, setMultiActionError] = useState<string | null>(null);
 
   const emailCampaignQuery = useCampaign(campaignId ?? "", !isLinkedin);
   const linkedinCampaignQuery = useLinkedinCampaign(campaignId ?? "", isLinkedin);
+  const multiSequenceQuery = useMultiChannelSequence(campaignId ?? "", isMulti);
+  const multiLeadsQuery = useCampaignLeads(campaignId ?? "", isMulti);
   const campaign = isLinkedin ? linkedinCampaignQuery.data : emailCampaignQuery.data;
   const isLoading = isLinkedin ? linkedinCampaignQuery.isLoading : emailCampaignQuery.isLoading;
   const error = isLinkedin ? linkedinCampaignQuery.error : emailCampaignQuery.error;
@@ -90,60 +102,141 @@ export default function CampaignDetailPage() {
               <div className="flex items-center gap-2">
                 <CampaignStatusBadge status={campaign.status} />
                 {canManage &&
-                  (!isLinkedin || getLinkedinCampaignActions(campaign.status).length > 0) && (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="outline" size="sm">
-                        {isLinkedin ? "Actions" : "Change status"}
-                        <ChevronDown className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent>
-                      {isLinkedin
-                        ? getLinkedinCampaignActions(campaign.status).map((action) => (
-                            <DropdownMenuItem
-                              key={action}
-                              onClick={() =>
-                                mutateLinkedinStatus.mutate({
-                                  campaignId,
-                                  action,
-                                })
-                              }
-                            >
-                              {action === "pause" ? "Pause" : "Resume"}
-                            </DropdownMenuItem>
-                          ))
-                        : getCampaignStatusActions(campaign.status).map((status) => (
-                            <DropdownMenuItem
-                              key={status}
-                              onClick={() =>
-                                updateStatus.mutate({
-                                  campaignId,
-                                  status,
-                                })
-                              }
-                            >
-                              Mark as {status}
-                            </DropdownMenuItem>
-                          ))}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                  isMulti &&
+                  campaign.status === "DRAFTED" && (
+                    <Button
+                      onClick={() => {
+                        setMultiActionError(null);
+                        const sequenceCount = multiSequenceQuery.data?.length ?? 0;
+                        const leadCount = multiLeadsQuery.data?.length ?? 0;
+                        if (sequenceCount === 0 || leadCount === 0) {
+                          setMultiActionError(
+                            "Activate requires at least one sequence step and one lead."
+                          );
+                          return;
+                        }
+                        activateCampaign.mutate(
+                          { campaignId },
+                          {
+                            onError: () => {
+                              setMultiActionError("Failed to activate campaign.");
+                            },
+                          }
+                        );
+                      }}
+                      disabled={
+                        activateCampaign.isPending ||
+                        multiSequenceQuery.isLoading ||
+                        multiLeadsQuery.isLoading
+                      }
+                    >
+                      {activateCampaign.isPending ? "Activating..." : "Activate"}
+                    </Button>
+                  )}
+                {canManage && isMulti && campaign.status === "ACTIVE" && (
+                  <>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => updateStatus.mutate({ campaignId, status: "PAUSED" })}
+                    >
+                      Pause
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => updateStatus.mutate({ campaignId, status: "STOPPED" })}
+                    >
+                      Stop
+                    </Button>
+                  </>
                 )}
+                {canManage && isMulti && campaign.status === "PAUSED" && (
+                  <>
+                    <Button
+                      variant="default"
+                      size="sm"
+                      onClick={() => updateStatus.mutate({ campaignId, status: "ACTIVE" })}
+                    >
+                      Resume
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => updateStatus.mutate({ campaignId, status: "STOPPED" })}
+                    >
+                      Stop
+                    </Button>
+                  </>
+                )}
+                {canManage &&
+                  !isMulti &&
+                  (!isLinkedin || getLinkedinCampaignActions(campaign.status).length > 0) && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline" size="sm">
+                          {isLinkedin ? "Actions" : "Change status"}
+                          <ChevronDown className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent>
+                        {isLinkedin
+                          ? getLinkedinCampaignActions(campaign.status).map((action) => (
+                              <DropdownMenuItem
+                                key={action}
+                                onClick={() =>
+                                  mutateLinkedinStatus.mutate({
+                                    campaignId,
+                                    action,
+                                  })
+                                }
+                              >
+                                {action === "pause" ? "Pause" : "Resume"}
+                              </DropdownMenuItem>
+                            ))
+                          : getCampaignStatusActions(campaign.status).map((status) => (
+                              <DropdownMenuItem
+                                key={status}
+                                onClick={() =>
+                                  updateStatus.mutate({
+                                    campaignId,
+                                    status,
+                                  })
+                                }
+                              >
+                                Mark as {status}
+                              </DropdownMenuItem>
+                            ))}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
               </div>
             </div>
 
-            {(updateStatus.error || mutateLinkedinStatus.error) && (
+            {(updateStatus.error || mutateLinkedinStatus.error || activateCampaign.error) && (
               <p className="mt-2 text-sm text-red-400">
                 Failed to update campaign status.
               </p>
             )}
+            {multiActionError && <p className="mt-2 text-sm text-red-400">{multiActionError}</p>}
 
-            <Tabs defaultValue="overview" className="mt-6">
+            <Tabs defaultValue={isMulti ? "sequence" : "overview"} className="mt-6">
               <TabsList>
-                <TabsTrigger value="overview">Overview</TabsTrigger>
-                <TabsTrigger value="leads">Leads</TabsTrigger>
-                {!isLinkedin && <TabsTrigger value="sequence">Sequence</TabsTrigger>}
-                {!isLinkedin && <TabsTrigger value="replies">Replies</TabsTrigger>}
+                {isMulti ? (
+                  <>
+                    <TabsTrigger value="sequence">Sequence</TabsTrigger>
+                    <TabsTrigger value="leads">Leads</TabsTrigger>
+                    <TabsTrigger value="progress">Progress</TabsTrigger>
+                    <TabsTrigger value="overview">Overview</TabsTrigger>
+                  </>
+                ) : (
+                  <>
+                    <TabsTrigger value="overview">Overview</TabsTrigger>
+                    <TabsTrigger value="leads">Leads</TabsTrigger>
+                    {!isLinkedin && <TabsTrigger value="sequence">Sequence</TabsTrigger>}
+                    {!isLinkedin && <TabsTrigger value="replies">Replies</TabsTrigger>}
+                  </>
+                )}
               </TabsList>
 
               <TabsContent value="overview">
@@ -156,19 +249,36 @@ export default function CampaignDetailPage() {
               <TabsContent value="leads">
                 {isLinkedin ? (
                   <LinkedinLeadsTab campaignId={campaignId} />
+                ) : isMulti ? (
+                  <MultiChannelLeadsTab campaignId={campaignId} />
                 ) : (
                   <CampaignLeadsTab campaignId={campaignId} />
                 )}
               </TabsContent>
-              {!isLinkedin && (
+              {isMulti ? (
                 <TabsContent value="sequence">
-                  <CampaignSequenceTab campaignId={campaignId} />
+                  <MultiChannelSequenceEditor
+                    campaignId={campaignId}
+                    campaignStatus={campaign.status}
+                  />
                 </TabsContent>
+              ) : (
+                !isLinkedin && (
+                  <TabsContent value="sequence">
+                    <CampaignSequenceTab campaignId={campaignId} />
+                  </TabsContent>
+                )
               )}
-              {!isLinkedin && (
-                <TabsContent value="replies">
-                  <CampaignRepliesTab campaignId={campaignId} />
+              {isMulti ? (
+                <TabsContent value="progress">
+                  <LeadProgressTab campaignId={campaignId} />
                 </TabsContent>
+              ) : (
+                !isLinkedin && (
+                  <TabsContent value="replies">
+                    <CampaignRepliesTab campaignId={campaignId} />
+                  </TabsContent>
+                )
               )}
             </Tabs>
           </>

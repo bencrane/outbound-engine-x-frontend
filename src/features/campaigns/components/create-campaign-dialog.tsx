@@ -1,6 +1,6 @@
 "use client";
 
-import { Linkedin, Mail } from "lucide-react";
+import { Layers, Linkedin, Mail } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
@@ -19,6 +19,7 @@ import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import {
   useCreateCampaign,
+  useCreateMultiChannelCampaign,
   useCreateLinkedinCampaign,
 } from "@/features/campaigns/api";
 import { useAuth } from "@/lib/auth-context";
@@ -30,13 +31,14 @@ interface CreateCampaignDialogProps {
   onClose: () => void;
 }
 
-type Channel = "email" | "linkedin";
+type Channel = "email" | "linkedin" | "multi";
 
 export function CreateCampaignDialog({ open, onClose }: CreateCampaignDialogProps) {
   const router = useRouter();
   const { user } = useAuth();
   const { data: companies = [] } = useCompanies();
   const createCampaign = useCreateCampaign();
+  const createMultiChannelCampaign = useCreateMultiChannelCampaign();
   const createLinkedinCampaign = useCreateLinkedinCampaign();
 
   const [channel, setChannel] = useState<Channel>("email");
@@ -48,7 +50,10 @@ export function CreateCampaignDialog({ open, onClose }: CreateCampaignDialogProp
   const [errorMessage, setErrorMessage] = useState("");
 
   const isOrgAdmin = user?.role === "org_admin";
-  const isPending = createCampaign.isPending || createLinkedinCampaign.isPending;
+  const isPending =
+    createCampaign.isPending ||
+    createLinkedinCampaign.isPending ||
+    createMultiChannelCampaign.isPending;
 
   const resolvedCompanyId = useMemo(() => {
     if (isOrgAdmin) {
@@ -98,6 +103,30 @@ export function CreateCampaignDialog({ open, onClose }: CreateCampaignDialogProp
       return;
     }
 
+    if (channel === "multi") {
+      if (!resolvedCompanyId) {
+        setErrorMessage("Company is required.");
+        return;
+      }
+      createMultiChannelCampaign.mutate(
+        {
+          campaign_type: "multi_channel",
+          company_id: resolvedCompanyId,
+          name: trimmedName,
+        },
+        {
+          onSuccess: (campaign) => {
+            onClose();
+            router.push(`/campaigns/${campaign.id}?channel=multi`);
+          },
+          onError: () => {
+            setErrorMessage("Failed to create multi-channel campaign.");
+          },
+        }
+      );
+      return;
+    }
+
     const parsedDailyLimit = parseOptionalNumber(dailyLimit);
     if (dailyLimit.trim() && parsedDailyLimit === null) {
       setErrorMessage("Daily limit must be a valid number.");
@@ -139,7 +168,7 @@ export function CreateCampaignDialog({ open, onClose }: CreateCampaignDialogProp
         </DialogHeader>
 
         <div className="space-y-4">
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-3 sm:grid-cols-3">
             <button
               type="button"
               onClick={() => setChannel("email")}
@@ -165,6 +194,19 @@ export function CreateCampaignDialog({ open, onClose }: CreateCampaignDialogProp
             >
               <Linkedin className="h-5 w-5 text-blue-400" />
               <p className="mt-3 text-sm font-semibold text-white">LinkedIn Campaign</p>
+            </button>
+            <button
+              type="button"
+              onClick={() => setChannel("multi")}
+              className={cn(
+                "rounded-lg border-2 p-6 text-left transition-colors",
+                channel === "multi"
+                  ? "border-blue-500 bg-blue-500/5"
+                  : "border-zinc-700 hover:border-zinc-600"
+              )}
+            >
+              <Layers className="h-5 w-5 text-blue-400" />
+              <p className="mt-3 text-sm font-semibold text-white">Multi-Channel Campaign</p>
             </button>
           </div>
 
@@ -238,9 +280,10 @@ export function CreateCampaignDialog({ open, onClose }: CreateCampaignDialogProp
           )}
 
           {errorMessage && <p className="text-sm text-red-400">{errorMessage}</p>}
-          {(createCampaign.error || createLinkedinCampaign.error) && !errorMessage && (
+          {(createCampaign.error || createLinkedinCampaign.error || createMultiChannelCampaign.error) &&
+            !errorMessage && (
             <p className="text-sm text-red-400">Campaign creation failed. Try again.</p>
-          )}
+            )}
         </div>
 
         <DialogFooter className="px-0 pb-0 pt-4">

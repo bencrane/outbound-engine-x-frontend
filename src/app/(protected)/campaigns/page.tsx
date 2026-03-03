@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { Layers } from "lucide-react";
 
 import { Gate, usePermission } from "@/components/gate";
 import { RouteGuard } from "@/components/route-guard";
@@ -38,13 +39,14 @@ type StatusFilter =
   | "COMPLETED"
   | "STOPPED";
 
-type ChannelFilter = "all" | "email" | "linkedin";
+type ChannelFilter = "all" | "email" | "linkedin" | "multi";
 
 interface UnifiedCampaign {
   id: string;
   name: string;
   status: "DRAFTED" | "ACTIVE" | "PAUSED" | "STOPPED" | "COMPLETED";
-  channel: "email" | "linkedin";
+  channel: "email" | "linkedin" | "multi";
+  campaignType: "single_channel" | "multi_channel";
   created_at: string;
   updated_at: string;
 }
@@ -85,12 +87,24 @@ export default function CampaignsPage() {
     () =>
       [
         ...emailCampaigns.map((campaign) => ({
-          ...campaign,
-          channel: "email" as const,
+          ...(campaign as typeof campaign & {
+            campaign_type?: "single_channel" | "multi_channel";
+          }),
+          channel:
+            (campaign as { campaign_type?: "single_channel" | "multi_channel" }).campaign_type ===
+            "multi_channel"
+              ? ("multi" as const)
+              : ("email" as const),
+          campaignType:
+            (campaign as { campaign_type?: "single_channel" | "multi_channel" }).campaign_type ===
+            "multi_channel"
+              ? ("multi_channel" as const)
+              : ("single_channel" as const),
         })),
         ...linkedinCampaigns.map((campaign) => ({
           ...campaign,
           channel: "linkedin" as const,
+          campaignType: "single_channel" as const,
         })),
       ]
         .map((campaign) => ({
@@ -98,6 +112,7 @@ export default function CampaignsPage() {
           name: campaign.name,
           status: campaign.status,
           channel: campaign.channel,
+          campaignType: campaign.campaignType,
           created_at: campaign.created_at,
           updated_at: campaign.updated_at,
         }))
@@ -122,7 +137,9 @@ export default function CampaignsPage() {
   const isLoading = isEmailLoading || isLinkedinLoading;
   const error = (emailError as Error | null) ?? (linkedinError as Error | null);
   const bulkDeleteCampaigns = useBulkDeleteCampaigns();
-  const selectableCampaigns = filteredCampaigns.filter((campaign) => campaign.channel === "email");
+  const selectableCampaigns = filteredCampaigns.filter(
+    (campaign) => campaign.channel === "email" && campaign.campaignType === "single_channel"
+  );
   const allSelected =
     selectableCampaigns.length > 0 &&
     selectableCampaigns.every((campaign) => selectedCampaignIds.includes(campaign.id));
@@ -192,6 +209,13 @@ export default function CampaignsPage() {
           >
             LinkedIn
           </Button>
+          <Button
+            variant={channelFilter === "multi" ? "default" : "secondary"}
+            size="sm"
+            onClick={() => setChannelFilter("multi")}
+          >
+            Multi-Channel
+          </Button>
         </div>
 
         <div className="mt-4 max-w-sm">
@@ -259,7 +283,8 @@ export default function CampaignsPage() {
                   </TableHeader>
                   <TableBody>
                     {filteredCampaigns.map((campaign) => {
-                      const selectable = campaign.channel === "email";
+                      const selectable =
+                        campaign.channel === "email" && campaign.campaignType === "single_channel";
                       const selected = selectedCampaignIds.includes(campaign.id);
                       return (
                         <TableRow
@@ -297,9 +322,16 @@ export default function CampaignsPage() {
                             </Link>
                           </TableCell>
                           <TableCell>
-                            <Badge variant={campaign.channel === "email" ? "default" : "secondary"}>
-                              {campaign.channel === "email" ? "Email" : "LinkedIn"}
-                            </Badge>
+                            {campaign.campaignType === "multi_channel" ? (
+                              <Badge variant="default" className="gap-1">
+                                <Layers className="h-3 w-3" />
+                                Multi-Channel
+                              </Badge>
+                            ) : (
+                              <Badge variant={campaign.channel === "email" ? "default" : "secondary"}>
+                                {campaign.channel === "email" ? "Email" : "LinkedIn"}
+                              </Badge>
+                            )}
                           </TableCell>
                           <TableCell>
                             <CampaignStatusBadge status={campaign.status} />

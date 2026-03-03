@@ -40,6 +40,105 @@ type BulkUpdateLeadStatusBody =
 type BulkDeleteLeadsBody =
   paths["/api/email-outreach/leads/bulk"]["delete"]["requestBody"]["content"]["application/json"];
 
+type UntypedApiClient = {
+  GET: (
+    path: string,
+    init?: {
+      params?: {
+        path?: Record<string, string>;
+        query?: Record<string, string>;
+      };
+    }
+  ) => Promise<{ data?: unknown; error?: unknown }>;
+  POST: (
+    path: string,
+    init?: {
+      params?: {
+        path?: Record<string, string>;
+      };
+      body?: unknown;
+    }
+  ) => Promise<{ data?: unknown; error?: unknown }>;
+  PUT: (
+    path: string,
+    init?: {
+      params?: {
+        path?: Record<string, string>;
+      };
+      body?: unknown;
+    }
+  ) => Promise<{ data?: unknown; error?: unknown }>;
+};
+
+const untypedApiClient = apiClient as unknown as UntypedApiClient;
+
+type CampaignType = "single_channel" | "multi_channel";
+type MultiChannel = "email" | "linkedin" | "direct_mail" | "voicemail";
+type MultiChannelActionType =
+  | "send_email"
+  | "send_connection_request"
+  | "send_linkedin_message"
+  | "send_postcard"
+  | "send_letter"
+  | "send_voicemail";
+type MultiChannelExecutionMode = "direct_single_touch" | "campaign_mediated";
+type LeadProgressStatus =
+  | "pending"
+  | "executing"
+  | "executed"
+  | "skipped"
+  | "failed"
+  | "completed";
+
+export interface MultiChannelSkipCondition {
+  event?: string;
+  direction?: string;
+  lead_status?: string;
+}
+
+export interface MultiChannelStep {
+  id?: string;
+  step_order: number;
+  channel: MultiChannel;
+  action_type: MultiChannelActionType;
+  delay_days: number;
+  execution_mode: MultiChannelExecutionMode;
+  action_config: Record<string, unknown>;
+  skip_if?: MultiChannelSkipCondition | null;
+  provider_campaign_id?: string | null;
+  provider_id?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export type MultiChannelCampaignResponse =
+  paths["/api/campaigns/"]["get"]["responses"]["200"]["content"]["application/json"][number] & {
+    campaign_type?: CampaignType;
+    provider_id?: string | null;
+  };
+
+export interface MultiChannelLeadInput {
+  email: string;
+  first_name?: string;
+  last_name?: string;
+  company?: string;
+  title?: string;
+  phone?: string;
+  step_content?: Record<string, unknown>;
+}
+
+export interface LeadProgress {
+  id: string;
+  lead_id: string;
+  current_step_order: number;
+  step_status: LeadProgressStatus;
+  next_execute_at: string | null;
+  executed_at: string | null;
+  completed_at: string | null;
+  attempts: number;
+  last_error: string | null;
+}
+
 export const campaignQueryKeys = {
   list: (options?: CampaignsFilters) => ["campaigns", "list", options ?? {}] as const,
   linkedinList: (options?: LinkedinCampaignsFilters) =>
@@ -59,6 +158,12 @@ export const campaignQueryKeys = {
     campaignId: string,
     options?: SequenceStepPerformanceFilters
   ) => ["campaigns", campaignId, "sequence-steps", options ?? {}] as const,
+  multiChannelSequence: (campaignId: string) =>
+    ["campaigns", campaignId, "multi-channel-sequence"] as const,
+  leadProgress: (campaignId: string, filters?: { step_status?: LeadProgressStatus }) =>
+    ["campaigns", campaignId, "lead-progress", filters ?? {}] as const,
+  singleLeadProgress: (campaignId: string, leadId: string) =>
+    ["campaigns", campaignId, "leads", leadId, "progress"] as const,
   messagesRecent: (options?: RecentMessagesFilters) =>
     ["campaigns", "messages", "recent", options ?? {}] as const,
 };
@@ -117,6 +222,22 @@ export function useCreateCampaign() {
   });
 }
 
+export function useCreateMultiChannelCampaign() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (body: { campaign_type: "multi_channel"; company_id: string; name: string }) => {
+      const { data, error } = await untypedApiClient.POST("/api/campaigns/multi-channel", { body });
+      if (error || !data) {
+        throw new Error("Failed to create multi-channel campaign.");
+      }
+      return data as MultiChannelCampaignResponse;
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: campaignQueryKeys.list() });
+    },
+  });
+}
+
 export function useCreateLinkedinCampaign() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -129,6 +250,169 @@ export function useCreateLinkedinCampaign() {
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["linkedin", "campaigns"] });
+    },
+  });
+}
+
+export function useMultiChannelSequence(campaignId: string, enabled = true) {
+  return useQuery({
+    queryKey: campaignQueryKeys.multiChannelSequence(campaignId),
+    enabled: Boolean(campaignId) && enabled,
+    queryFn: async () => {
+      const { data, error } = await untypedApiClient.GET(
+        "/api/campaigns/{campaign_id}/multi-channel-sequence",
+        {
+          params: {
+            path: { campaign_id: campaignId },
+          },
+        }
+      );
+      if (error) {
+        throw new Error("Failed to fetch multi-channel sequence.");
+      }
+      return (data ?? []) as MultiChannelStep[];
+    },
+  });
+}
+
+export function useSaveMultiChannelSequence() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      campaignId,
+      steps,
+    }: {
+      campaignId: string;
+      steps: Array<Omit<MultiChannelStep, "id" | "provider_id" | "created_at" | "updated_at">>;
+    }) => {
+      const { data, error } = await untypedApiClient.PUT(
+        "/api/campaigns/{campaign_id}/multi-channel-sequence",
+        {
+          params: {
+            path: { campaign_id: campaignId },
+          },
+          body: { steps },
+        }
+      );
+
+      if (error) {
+        throw new Error("Failed to save multi-channel sequence.");
+      }
+
+      return (data ?? []) as MultiChannelStep[];
+    },
+    onSuccess: async (_, variables) => {
+      await queryClient.invalidateQueries({
+        queryKey: campaignQueryKeys.multiChannelSequence(variables.campaignId),
+      });
+    },
+  });
+}
+
+export function useAddMultiChannelLeads() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      campaignId,
+      leads,
+    }: {
+      campaignId: string;
+      leads: MultiChannelLeadInput[];
+    }) => {
+      const { data, error } = await untypedApiClient.POST(
+        "/api/campaigns/{campaign_id}/multi-channel-leads",
+        {
+          params: {
+            path: { campaign_id: campaignId },
+          },
+          body: { leads },
+        }
+      );
+      if (error || !data) {
+        throw new Error("Failed to add multi-channel leads.");
+      }
+      return data as {
+        campaign_id: string;
+        affected: number;
+        status: string;
+      };
+    },
+    onSuccess: async (_, variables) => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: campaignQueryKeys.leads(variables.campaignId) }),
+        queryClient.invalidateQueries({ queryKey: ["campaigns", variables.campaignId, "lead-progress"] }),
+      ]);
+    },
+  });
+}
+
+export function useActivateCampaign() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ campaignId }: { campaignId: string }) => {
+      const { data, error } = await untypedApiClient.POST("/api/campaigns/{campaign_id}/activate", {
+        params: {
+          path: { campaign_id: campaignId },
+        },
+      });
+      if (error || !data) {
+        throw new Error("Failed to activate campaign.");
+      }
+      return data as {
+        campaign_id: string;
+        status: "ACTIVE";
+        leads_initialized: number;
+        first_step_order: number;
+        first_execute_at: string;
+      };
+    },
+    onSuccess: async (_, variables) => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: campaignQueryKeys.list() }),
+        queryClient.invalidateQueries({ queryKey: campaignQueryKeys.detail(variables.campaignId) }),
+        queryClient.invalidateQueries({ queryKey: campaignQueryKeys.summary(variables.campaignId) }),
+        queryClient.invalidateQueries({ queryKey: ["campaigns", variables.campaignId, "lead-progress"] }),
+      ]);
+    },
+  });
+}
+
+export function useLeadProgress(campaignId: string, filters?: { step_status?: LeadProgressStatus }) {
+  return useQuery({
+    queryKey: campaignQueryKeys.leadProgress(campaignId, filters),
+    enabled: Boolean(campaignId),
+    queryFn: async () => {
+      const { data, error } = await untypedApiClient.GET("/api/campaigns/{campaign_id}/lead-progress", {
+        params: {
+          path: { campaign_id: campaignId },
+          query: filters?.step_status ? { step_status: filters.step_status } : {},
+        },
+      });
+      if (error) {
+        throw new Error("Failed to fetch lead progress.");
+      }
+      return (data ?? []) as LeadProgress[];
+    },
+  });
+}
+
+export function useSingleLeadProgress(campaignId: string, leadId: string) {
+  return useQuery({
+    queryKey: campaignQueryKeys.singleLeadProgress(campaignId, leadId),
+    enabled: Boolean(campaignId) && Boolean(leadId),
+    queryFn: async () => {
+      const { data, error } = await untypedApiClient.GET(
+        "/api/campaigns/{campaign_id}/leads/{lead_id}/progress",
+        {
+          params: {
+            path: { campaign_id: campaignId, lead_id: leadId },
+          },
+        }
+      );
+      if (error || !data) {
+        throw new Error("Failed to fetch single lead progress.");
+      }
+      return data as LeadProgress;
     },
   });
 }
@@ -223,10 +507,10 @@ export function useCampaignAnalyticsSummary(campaignId: string) {
   });
 }
 
-export function useCampaignLeads(campaignId: string) {
+export function useCampaignLeads(campaignId: string, enabled = true) {
   return useQuery({
     queryKey: campaignQueryKeys.leads(campaignId),
-    enabled: Boolean(campaignId),
+    enabled: Boolean(campaignId) && enabled,
     queryFn: async () => {
       const { data, error } = await apiClient.GET("/api/campaigns/{campaign_id}/leads", {
         params: {
