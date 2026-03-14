@@ -16,7 +16,9 @@ export type Permission =
   | "settings.manage"
   | "analytics.view"
   | "inboxes.manage"
-  | "users.manage";
+  | "users.manage"
+  | "tam.view"
+  | "chat.view";
 
 const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
   org_admin: [
@@ -36,6 +38,8 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "analytics.view",
     "inboxes.manage",
     "users.manage",
+    "tam.view",
+    "chat.view",
   ],
   company_admin: [
     "dashboard.view",
@@ -46,6 +50,8 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "voicedrop.view",
     "settings.view",
     "analytics.view",
+    "tam.view",
+    "chat.view",
   ],
   company_member: ["inbox.view"],
 };

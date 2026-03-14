@@ -10,6 +10,8 @@ import {
   Phone,
   Settings,
   Users,
+  Globe,
+  MessageSquare,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -47,6 +49,18 @@ const navigation: NavigationItem[] = [
     href: "/direct-mail",
     icon: Mail,
     permission: "direct-mail.view",
+  },
+  {
+    name: "TAM",
+    href: "/tam",
+    icon: Globe,
+    permission: "tam.view",
+  },
+  {
+    name: "Chat",
+    href: "/chat",
+    icon: MessageSquare,
+    permission: "chat.view",
   },
   {
     name: "VoiceDrop",
