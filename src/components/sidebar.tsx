@@ -64,10 +64,11 @@ const navigation: NavigationItem[] = [
 
 export function Sidebar() {
   const pathname = usePathname();
-  const { logout, user } = useAuth();
+  const { logout, user, orgs, switchOrg } = useAuth();
   const { selectedCompanyId, setSelectedCompanyId, companies, isLoading } = useCompanyContext();
   const resolvedRole = user?.role;
-  const isOrgAdmin = resolvedRole === "org_admin";
+  const canSwitchCompanies = user?.company_id === null;
+  const hasMultipleOrgs = orgs.length > 1;
   const visibleNavigation = resolvedRole && isRole(resolvedRole)
     ? navigation.filter((item) => hasPermission(resolvedRole, item.permission))
     : [];
@@ -78,7 +79,29 @@ export function Sidebar() {
         <span className="text-lg font-semibold text-white">Outbound Engine</span>
       </div>
 
-      {isOrgAdmin && (
+      {hasMultipleOrgs && (
+        <div className="border-b border-zinc-800 px-3 py-3">
+          <p className="mb-1 text-[11px] uppercase tracking-wider text-zinc-500">Organization</p>
+          <Select
+            value={user?.org_id ?? ""}
+            onChange={(event) => {
+              if (event.target.value && event.target.value !== user?.org_id) {
+                switchOrg(event.target.value);
+              }
+            }}
+            className="text-white"
+            aria-label="Select organization"
+          >
+            {orgs.map((org) => (
+              <option key={org.org_id} value={org.org_id}>
+                {org.org_name}
+              </option>
+            ))}
+          </Select>
+        </div>
+      )}
+
+      {canSwitchCompanies && (
         <div className="border-b border-zinc-800 px-3 py-3">
           <p className="mb-1 text-[11px] uppercase tracking-wider text-zinc-500">Client</p>
           {isLoading ? (

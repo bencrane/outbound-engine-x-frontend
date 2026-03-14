@@ -33,15 +33,15 @@ const CompanyContext = createContext<CompanyContextType | undefined>(undefined);
 
 export function CompanyProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
-  const isOrgAdmin = user?.role === "org_admin";
+  const canSwitchCompanies = user?.company_id === null;
   const { data: fetchedCompanies = [], isLoading: isCompaniesLoading } = useCompanies();
   const [selectedCompanyId, setSelectedCompanyIdState] = useState<string | null>(null);
   const [hasHydratedSelection, setHasHydratedSelection] = useState(false);
 
-  const companies = isOrgAdmin ? fetchedCompanies : [];
+  const companies = canSwitchCompanies ? fetchedCompanies : [];
 
   useEffect(() => {
-    if (!isOrgAdmin) {
+    if (!canSwitchCompanies) {
       setSelectedCompanyIdState(null);
       setHasHydratedSelection(true);
       return;
@@ -50,10 +50,10 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
     const storedValue = window.localStorage.getItem(STORAGE_KEY);
     setSelectedCompanyIdState(storedValue || null);
     setHasHydratedSelection(true);
-  }, [isOrgAdmin]);
+  }, [canSwitchCompanies]);
 
   useEffect(() => {
-    if (!isOrgAdmin || !hasHydratedSelection) {
+    if (!canSwitchCompanies || !hasHydratedSelection) {
       return;
     }
 
@@ -63,10 +63,10 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
     }
 
     window.localStorage.setItem(STORAGE_KEY, selectedCompanyId);
-  }, [hasHydratedSelection, isOrgAdmin, selectedCompanyId]);
+  }, [hasHydratedSelection, canSwitchCompanies, selectedCompanyId]);
 
   useEffect(() => {
-    if (!isOrgAdmin || !hasHydratedSelection || !selectedCompanyId) {
+    if (!canSwitchCompanies || !hasHydratedSelection || !selectedCompanyId) {
       return;
     }
 
@@ -74,7 +74,7 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
     if (!exists) {
       setSelectedCompanyIdState(null);
     }
-  }, [companies, hasHydratedSelection, isOrgAdmin, selectedCompanyId]);
+  }, [companies, hasHydratedSelection, canSwitchCompanies, selectedCompanyId]);
 
   const selectedCompany = useMemo(
     () => companies.find((company) => company.id === selectedCompanyId) ?? null,
@@ -83,28 +83,28 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
 
   const setSelectedCompanyId = useCallback(
     (id: string | null) => {
-      if (!isOrgAdmin) {
+      if (!canSwitchCompanies) {
         setSelectedCompanyIdState(null);
         return;
       }
       setSelectedCompanyIdState(id);
     },
-    [isOrgAdmin]
+    [canSwitchCompanies]
   );
 
   const value = useMemo<CompanyContextType>(
     () => ({
-      selectedCompanyId: isOrgAdmin ? selectedCompanyId : null,
+      selectedCompanyId: canSwitchCompanies ? selectedCompanyId : null,
       setSelectedCompanyId,
-      selectedCompany: isOrgAdmin ? selectedCompany : null,
+      selectedCompany: canSwitchCompanies ? selectedCompany : null,
       companies,
-      isLoading: isOrgAdmin ? isCompaniesLoading || !hasHydratedSelection : false,
+      isLoading: canSwitchCompanies ? isCompaniesLoading || !hasHydratedSelection : false,
     }),
     [
       companies,
       hasHydratedSelection,
       isCompaniesLoading,
-      isOrgAdmin,
+      canSwitchCompanies,
       selectedCompany,
       selectedCompanyId,
       setSelectedCompanyId,
@@ -126,7 +126,7 @@ export function useCompanyFilters(): CompanyFilters {
   const { user } = useAuth();
   const { selectedCompanyId } = useCompanyContext();
 
-  if (user?.role !== "org_admin") {
+  if (user?.company_id !== null) {
     return {};
   }
 

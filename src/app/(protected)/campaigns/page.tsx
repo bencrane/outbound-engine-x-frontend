@@ -134,8 +134,8 @@ export default function CampaignsPage() {
     .filter((campaign) =>
       campaign.name.toLowerCase().includes(query.toLowerCase().trim())
     );
-  const isLoading = isEmailLoading || isLinkedinLoading;
-  const error = (emailError as Error | null) ?? (linkedinError as Error | null);
+  const isLoading = isEmailLoading;
+  const error = emailError as Error | null;
   const bulkDeleteCampaigns = useBulkDeleteCampaigns();
   const selectableCampaigns = filteredCampaigns.filter(
     (campaign) => campaign.channel === "email" && campaign.campaignType === "single_channel"
@@ -151,7 +151,7 @@ export default function CampaignsPage() {
           <div>
             <h1 className="text-2xl font-semibold text-white">Campaigns</h1>
             <p className="mt-1 text-zinc-400">Manage your outreach campaigns</p>
-            {user?.role === "org_admin" && (
+            {user?.company_id === null && (
               <p className="mt-0.5 text-sm text-zinc-500">
                 Viewing: {selectedCompany?.name ?? "All Companies"}
               </p>
@@ -226,9 +226,15 @@ export default function CampaignsPage() {
           />
         </div>
 
+        {linkedinError && (
+          <p className="mt-4 text-sm text-amber-400">
+            LinkedIn campaigns unavailable: {(linkedinError as Error).message}
+          </p>
+        )}
+
         <div className="mt-6">
           {error ? (
-            <p className="text-sm text-red-400">Failed to load campaigns.</p>
+            <p className="text-sm text-red-400">{error.message}</p>
           ) : isLoading ? (
             <CampaignListSkeleton />
           ) : filteredCampaigns.length === 0 ? (

@@ -86,7 +86,7 @@ export default function InboxPage() {
         <div className="border-b border-zinc-800 px-6 py-4">
           <h1 className="text-2xl font-semibold text-white">Inbox</h1>
           <p className="mt-1 text-zinc-400">View and respond to replies</p>
-          {user?.role === "org_admin" && (
+          {user?.company_id === null && (
             <p className="mt-0.5 text-sm text-zinc-500">
               Viewing: {selectedCompany?.name ?? "All Companies"}
             </p>

@@ -3,6 +3,13 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@/lib/api-client";
 import type { paths } from "@/lib/api-types";
 
+function getErrorMessage(error: unknown, fallback: string): string {
+  if (error && typeof error === "object" && "detail" in error) {
+    return String((error as { detail: unknown }).detail);
+  }
+  return fallback;
+}
+
 type CampaignsFilters = NonNullable<
   paths["/api/campaigns/"]["get"]["parameters"]["query"]
 >;
@@ -186,7 +193,7 @@ export function useCampaigns(options?: CampaignsFilters) {
       });
 
       if (error) {
-        throw new Error("Failed to fetch campaigns.");
+        throw new Error(getErrorMessage(error, "Failed to fetch campaigns."));
       }
 
       return data ?? [];
@@ -205,7 +212,7 @@ export function useLinkedinCampaigns(options?: LinkedinCampaignsFilters) {
       });
 
       if (error) {
-        throw new Error("Failed to fetch LinkedIn campaigns.");
+        throw new Error(getErrorMessage(error, "Failed to fetch LinkedIn campaigns."));
       }
 
       return data ?? [];
@@ -219,7 +226,7 @@ export function useCreateCampaign() {
     mutationFn: async (body: CreateCampaignBody) => {
       const { data, error } = await apiClient.POST("/api/campaigns/", { body });
       if (error || !data) {
-        throw new Error("Failed to create campaign.");
+        throw new Error(getErrorMessage(error, "Failed to create campaign."));
       }
       return data;
     },
@@ -235,7 +242,7 @@ export function useCreateMultiChannelCampaign() {
     mutationFn: async (body: { campaign_type: "multi_channel"; company_id: string; name: string }) => {
       const { data, error } = await untypedApiClient.POST("/api/campaigns/multi-channel", { body });
       if (error || !data) {
-        throw new Error("Failed to create multi-channel campaign.");
+        throw new Error(getErrorMessage(error, "Failed to create multi-channel campaign."));
       }
       return data as MultiChannelCampaignResponse;
     },
@@ -251,7 +258,7 @@ export function useCreateLinkedinCampaign() {
     mutationFn: async (body: CreateLinkedinCampaignBody) => {
       const { data, error } = await apiClient.POST("/api/linkedin/campaigns/", { body });
       if (error || !data) {
-        throw new Error("Failed to create LinkedIn campaign.");
+        throw new Error(getErrorMessage(error, "Failed to create LinkedIn campaign."));
       }
       return data;
     },
@@ -275,7 +282,7 @@ export function useMultiChannelSequence(campaignId: string, enabled = true) {
         }
       );
       if (error) {
-        throw new Error("Failed to fetch multi-channel sequence.");
+        throw new Error(getErrorMessage(error, "Failed to fetch multi-channel sequence."));
       }
       return (data ?? []) as MultiChannelStep[];
     },
@@ -303,7 +310,7 @@ export function useSaveMultiChannelSequence() {
       );
 
       if (error) {
-        throw new Error("Failed to save multi-channel sequence.");
+        throw new Error(getErrorMessage(error, "Failed to save multi-channel sequence."));
       }
 
       return (data ?? []) as MultiChannelStep[];
@@ -336,7 +343,7 @@ export function useAddMultiChannelLeads() {
         }
       );
       if (error || !data) {
-        throw new Error("Failed to add multi-channel leads.");
+        throw new Error(getErrorMessage(error, "Failed to add multi-channel leads."));
       }
       return data as {
         campaign_id: string;
@@ -363,7 +370,7 @@ export function useActivateCampaign() {
         },
       });
       if (error || !data) {
-        throw new Error("Failed to activate campaign.");
+        throw new Error(getErrorMessage(error, "Failed to activate campaign."));
       }
       return data as {
         campaign_id: string;
@@ -396,7 +403,7 @@ export function useLeadProgress(campaignId: string, filters?: { step_status?: Le
         },
       });
       if (error) {
-        throw new Error("Failed to fetch lead progress.");
+        throw new Error(getErrorMessage(error, "Failed to fetch lead progress."));
       }
       return (data ?? []) as LeadProgress[];
     },
@@ -417,7 +424,7 @@ export function useSingleLeadProgress(campaignId: string, leadId: string) {
         }
       );
       if (error || !data) {
-        throw new Error("Failed to fetch single lead progress.");
+        throw new Error(getErrorMessage(error, "Failed to fetch single lead progress."));
       }
       return data as LeadProgress;
     },
@@ -434,7 +441,7 @@ export async function fetchLeadStepContent(campaignId: string, leadId: string) {
     }
   );
   if (error) {
-    throw new Error("Failed to fetch lead step content.");
+    throw new Error(getErrorMessage(error, "Failed to fetch lead step content."));
   }
   return (data ?? []) as StepContentOverride[];
 }
@@ -469,7 +476,7 @@ export function useSaveLeadStepContent() {
         }
       );
       if (error) {
-        throw new Error("Failed to save lead step content.");
+        throw new Error(getErrorMessage(error, "Failed to save lead step content."));
       }
       return (data ?? []) as StepContentOverride[];
     },
@@ -495,7 +502,7 @@ export function useRecentMessages(options?: RecentMessagesFilters) {
       });
 
       if (error) {
-        throw new Error("Failed to fetch recent messages.");
+        throw new Error(getErrorMessage(error, "Failed to fetch recent messages."));
       }
 
       return data ?? [];
@@ -515,7 +522,7 @@ export function useCampaign(campaignId: string, enabled = true) {
       });
 
       if (error || !data) {
-        throw new Error("Failed to fetch campaign.");
+        throw new Error(getErrorMessage(error, "Failed to fetch campaign."));
       }
 
       return data;
@@ -540,7 +547,7 @@ export function useLinkedinCampaign(campaignId: string, enabled = true) {
       );
 
       if (error || !data) {
-        throw new Error("Failed to fetch LinkedIn campaign.");
+        throw new Error(getErrorMessage(error, "Failed to fetch LinkedIn campaign."));
       }
 
       return data;
@@ -563,7 +570,7 @@ export function useCampaignAnalyticsSummary(campaignId: string) {
       );
 
       if (error || !data) {
-        throw new Error("Failed to fetch campaign analytics summary.");
+        throw new Error(getErrorMessage(error, "Failed to fetch campaign analytics summary."));
       }
 
       return data;
@@ -583,7 +590,7 @@ export function useCampaignLeads(campaignId: string, enabled = true) {
       });
 
       if (error) {
-        throw new Error("Failed to fetch campaign leads.");
+        throw new Error(getErrorMessage(error, "Failed to fetch campaign leads."));
       }
 
       return data ?? [];
@@ -608,7 +615,7 @@ export function useLinkedinCampaignLeads(campaignId: string) {
       );
 
       if (error) {
-        throw new Error("Failed to fetch LinkedIn campaign leads.");
+        throw new Error(getErrorMessage(error, "Failed to fetch LinkedIn campaign leads."));
       }
 
       return data ?? [];
@@ -628,7 +635,7 @@ export function useCampaignSequence(campaignId: string) {
       });
 
       if (error || !data) {
-        throw new Error("Failed to fetch campaign sequence.");
+        throw new Error(getErrorMessage(error, "Failed to fetch campaign sequence."));
       }
 
       return data;
@@ -648,7 +655,7 @@ export function useCampaignSchedule(campaignId: string) {
       });
 
       if (error || !data) {
-        throw new Error("Failed to fetch campaign schedule.");
+        throw new Error(getErrorMessage(error, "Failed to fetch campaign schedule."));
       }
 
       return data;
@@ -668,7 +675,7 @@ export function useCampaignReplies(campaignId: string) {
       });
 
       if (error) {
-        throw new Error("Failed to fetch campaign replies.");
+        throw new Error(getErrorMessage(error, "Failed to fetch campaign replies."));
       }
 
       return data ?? [];
@@ -691,7 +698,7 @@ export function useCampaignProviderAnalytics(campaignId: string) {
       );
 
       if (error || !data) {
-        throw new Error("Failed to fetch campaign provider analytics.");
+        throw new Error(getErrorMessage(error, "Failed to fetch campaign provider analytics."));
       }
 
       return data;
@@ -716,7 +723,7 @@ export function useLinkedinCampaignMetrics(campaignId: string) {
       );
 
       if (error || !data) {
-        throw new Error("Failed to fetch LinkedIn campaign metrics.");
+        throw new Error(getErrorMessage(error, "Failed to fetch LinkedIn campaign metrics."));
       }
 
       return data;
@@ -743,7 +750,7 @@ export function useSequenceStepPerformance(
       );
 
       if (error) {
-        throw new Error("Failed to fetch sequence step performance.");
+        throw new Error(getErrorMessage(error, "Failed to fetch sequence step performance."));
       }
 
       return data ?? [];
@@ -770,7 +777,7 @@ export function useUpdateCampaignStatus() {
       });
 
       if (error || !data) {
-        throw new Error("Failed to update campaign status.");
+        throw new Error(getErrorMessage(error, "Failed to update campaign status."));
       }
 
       return data;
@@ -813,7 +820,7 @@ export function useLinkedinCampaignAction() {
       );
 
       if (error || !data) {
-        throw new Error("Failed to mutate LinkedIn campaign status.");
+        throw new Error(getErrorMessage(error, "Failed to mutate LinkedIn campaign status."));
       }
 
       return data;
@@ -853,7 +860,7 @@ export function usePauseCampaignLead() {
       );
 
       if (error || !data) {
-        throw new Error("Failed to pause lead.");
+        throw new Error(getErrorMessage(error, "Failed to pause lead."));
       }
 
       return data;
@@ -890,7 +897,7 @@ export function useResumeCampaignLead() {
       );
 
       if (error || !data) {
-        throw new Error("Failed to resume lead.");
+        throw new Error(getErrorMessage(error, "Failed to resume lead."));
       }
 
       return data;
@@ -927,7 +934,7 @@ export function useUnsubscribeCampaignLead() {
       );
 
       if (error || !data) {
-        throw new Error("Failed to unsubscribe lead.");
+        throw new Error(getErrorMessage(error, "Failed to unsubscribe lead."));
       }
 
       return data;
@@ -967,7 +974,7 @@ export function useLinkedinLeadStatusUpdate() {
       );
 
       if (error || !data) {
-        throw new Error("Failed to update LinkedIn lead status.");
+        throw new Error(getErrorMessage(error, "Failed to update LinkedIn lead status."));
       }
 
       return data;
@@ -1013,7 +1020,7 @@ export function useSendLinkedinMessage() {
       );
 
       if (error || !data) {
-        throw new Error("Failed to send LinkedIn message.");
+        throw new Error(getErrorMessage(error, "Failed to send LinkedIn message."));
       }
 
       return data;
@@ -1034,7 +1041,7 @@ export function useBulkDeleteCampaigns() {
         body,
       });
       if (error) {
-        throw new Error("Failed to bulk delete campaigns.");
+        throw new Error(getErrorMessage(error, "Failed to bulk delete campaigns."));
       }
       return data as unknown;
     },
@@ -1055,7 +1062,7 @@ export function useBulkCreateLeadsCsv() {
         body,
       });
       if (error) {
-        throw new Error("Failed to import leads CSV.");
+        throw new Error(getErrorMessage(error, "Failed to import leads CSV."));
       }
       return data as unknown;
     },
@@ -1073,7 +1080,7 @@ export function useBulkUpdateLeadStatus() {
         body,
       });
       if (error) {
-        throw new Error("Failed to bulk update lead status.");
+        throw new Error(getErrorMessage(error, "Failed to bulk update lead status."));
       }
       return data as unknown;
     },
@@ -1093,7 +1100,7 @@ export function useBulkDeleteLeads() {
         body,
       });
       if (error) {
-        throw new Error("Failed to bulk delete leads.");
+        throw new Error(getErrorMessage(error, "Failed to bulk delete leads."));
       }
       return data as unknown;
     },

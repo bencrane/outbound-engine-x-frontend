@@ -13,6 +13,17 @@ export interface LoginResponse {
   access_token: string;
 }
 
+export interface UserOrg {
+  org_id: string;
+  org_name: string;
+  role: string;
+}
+
+export interface SwitchOrgResponse {
+  access_token: string;
+  token_type: string;
+}
+
 export interface ApiError {
   detail: string;
 }
@@ -72,6 +83,19 @@ export async function apiFetch<T>(
 
 export async function getCurrentUser(): Promise<User> {
   return apiFetch<User>('/api/auth/me');
+}
+
+export async function getUserOrgs(): Promise<UserOrg[]> {
+  return apiFetch<UserOrg[]>('/api/auth/orgs');
+}
+
+export async function switchOrg(orgId: string): Promise<string> {
+  const response = await apiFetch<SwitchOrgResponse>('/api/auth/switch-org', {
+    method: 'POST',
+    body: JSON.stringify({ org_id: orgId }),
+  });
+  setToken(response.access_token);
+  return response.access_token;
 }
 
 export function logout(): void {

@@ -149,7 +149,7 @@ export default function LeadsPage() {
       <div className="p-8">
         <h1 className="text-2xl font-semibold text-white">Leads</h1>
         <p className="mt-1 text-zinc-400">View leads across all campaigns</p>
-        {user?.role === "org_admin" && (
+        {user?.company_id === null && (
           <p className="mt-0.5 text-sm text-zinc-500">
             Viewing: {selectedCompany?.name ?? "All Companies"}
           </p>
