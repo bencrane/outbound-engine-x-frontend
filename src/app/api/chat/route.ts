@@ -9,7 +9,7 @@ import {
 import { frontendTools } from "@assistant-ui/react-ai-sdk";
 import { z } from "zod";
 
-const DATAENGINE_BASE = "https://api.dataengine.run/api";
+const DATAENGINE_BASE = `${process.env.NEXT_PUBLIC_DEX_API_BASE_URL || "https://api.dataengine.run"}/api`;
 
 const SYSTEM_PROMPT = `You are an AI sales assistant for Outbound Engine X, a multi-channel outbound sales platform. You help users:
 

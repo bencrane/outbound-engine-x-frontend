@@ -8,7 +8,7 @@ export async function POST(
     // Await params as required by Next 15+ App Router
     const resolvedParams = await params;
     const backendPath = resolvedParams.path.join("/");
-    const url = `https://api.dataengine.run/api/${backendPath}`;
+    const url = `${process.env.NEXT_PUBLIC_DEX_API_BASE_URL || "https://api.dataengine.run"}/api/${backendPath}`;
 
     const token = process.env.DATAENGINE_API_TOKEN;
     if (!token) {

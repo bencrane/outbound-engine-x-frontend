@@ -1,5 +1,5 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
-const DATAENGINE_API_BASE = 'https://api.dataengine.run';
+const API_BASE = process.env.NEXT_PUBLIC_OEX_API_BASE_URL || 'http://localhost:8000';
+const DATAENGINE_API_BASE = process.env.NEXT_PUBLIC_DEX_API_BASE_URL || 'http://localhost:8001';
 
 export interface User {
   user_id: string;
