@@ -1,6 +1,7 @@
 [build]
 builder = "dockerfile"
 dockerfilePath = "Dockerfile"
+dockerfileArgs = ["DOPPLER_TOKEN=${{DOPPLER_TOKEN}}"]
 
 [deploy]
 restartPolicyType = "on_failure"

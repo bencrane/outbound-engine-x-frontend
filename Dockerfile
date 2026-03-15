@@ -13,7 +13,9 @@ COPY package*.json ./
 RUN npm ci
 
 COPY . .
-RUN npm run build
+
+ARG DOPPLER_TOKEN
+RUN doppler run -- npm run build
 
 EXPOSE 3000
 
