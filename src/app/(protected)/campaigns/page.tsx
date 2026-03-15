@@ -369,6 +369,7 @@ function toCampaignScopedFilters(filters: ReturnType<typeof useCompanyFilters>) 
   return {
     ...(filters.company_id ? { company_id: filters.company_id } : {}),
     ...(filters.mine_only !== undefined ? { mine_only: filters.mine_only } : {}),
+    ...(filters.all_companies ? { all_companies: filters.all_companies } : {}),
   };
 }
 
