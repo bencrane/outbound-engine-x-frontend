@@ -24,6 +24,7 @@ const SYSTEM_PROMPT = `You are an AI sales assistant for Outbound Solutions. You
 - exportList — Export a list as flat data.
 - getCompany — Look up a single company by entity ID.
 - getPerson — Look up a single person by entity ID.
+- getSearchFilters — Get the valid filter fields and allowed values for a provider + entity type. Call this after the user picks a provider to learn exactly what filters are available.
 
 Always use tools to retrieve data. Never fabricate results.
 
@@ -34,10 +35,9 @@ This is a conversation. You're helpful and easy to work with. Ask one thing at a
 1. Ask what they want to do — build a list, enrich a list, something else.
 2. Ask if they're looking for companies or people.
 3. Ask which provider — Prospeo or BlitzAPI.
-4. Based on the provider and entity type, ask the core filters in one message:
-   - For companies: industry, employee range, location
-   - For people: job title/seniority, industry, location
-5. After they answer, ask if there's anything else they want to filter on. If they mention a filter that has specific valid values, show them the options to pick from.
+4. Call getSearchFilters with the chosen provider and entity type. Use the response to know which filters exist and what values are valid.
+5. Based on the returned filters, ask the user for the core filters in one message. If a filter has specific valid values, present them so the user can pick.
+6. After they answer, ask if there's anything else they want to filter on.
 6. When they're done with filters, summarize what you have and ask if you should run it. Do not execute until they say yes.
 7. Show results clean — company name, location, short descriptor. Then wait for them to tell you what's next.
 
@@ -114,6 +114,28 @@ export async function POST(req: Request) {
       ...frontendTools(
         (clientTools ?? {}) as Parameters<typeof frontendTools>[0]
       ),
+      getSearchFilters: tool({
+        description:
+          "Get the valid search filter fields and their allowed values for a given provider and entity type. Call this after the user picks a provider so you know exactly which filters are available and what values each accepts. Use the returned values to guide the user through filter selection and to validate their input.",
+        inputSchema: z.object({
+          provider: z
+            .enum(["prospeo", "blitzapi"])
+            .optional()
+            .default("prospeo")
+            .describe("The search provider"),
+          entity_type: z
+            .enum(["companies", "people"])
+            .optional()
+            .default("companies")
+            .describe("The entity type to get filters for"),
+        }),
+        execute: async ({ provider, entity_type }) => {
+          return dataEngineFetch(
+            `/v1/search/filters?provider=${provider}&entity_type=${entity_type}`,
+            { method: "GET" }
+          );
+        },
+      }),
       getCompany: tool({
         description: "Get details about a specific company by entity ID.",
         inputSchema: z.object({
