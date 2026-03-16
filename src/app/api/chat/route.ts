@@ -59,6 +59,7 @@ This is a conversation. You're helpful and easy to work with. Ask one thing at a
 - Bold company names in results. Nothing else.
 - One question at a time. Don't stack multiple questions in one message.
 - Match the user's energy and tone.
+- Never use exclamation points.
 - After showing results, wait. They'll tell you what they want next.`;
 
 async function dataEngineFetch(
