@@ -71,10 +71,11 @@ export default function TAMPage() {
         )}
 
         {/* Tabs */}
-        <div className="mt-6 flex space-x-1 border-b border-zinc-800">
+        <div className="mt-6 flex flex-wrap gap-x-1 gap-y-0 border-b border-zinc-800">
           <button
+            type="button"
             onClick={() => setViewTab("companies")}
-            className={`px-4 py-2 text-sm font-medium transition-colors ${
+            className={`shrink-0 px-4 py-2 text-sm font-medium transition-colors ${
               viewTab === "companies"
                 ? "border-b-2 border-white text-white"
                 : "text-zinc-400 hover:text-white"
@@ -83,8 +84,9 @@ export default function TAMPage() {
             Companies
           </button>
           <button
+            type="button"
             onClick={() => setViewTab("people")}
-            className={`px-4 py-2 text-sm font-medium transition-colors ${
+            className={`shrink-0 px-4 py-2 text-sm font-medium transition-colors ${
               viewTab === "people"
                 ? "border-b-2 border-white text-white"
                 : "text-zinc-400 hover:text-white"
@@ -93,8 +95,9 @@ export default function TAMPage() {
             People
           </button>
           <button
+            type="button"
             onClick={() => setViewTab("explore")}
-            className={`px-4 py-2 text-sm font-medium transition-colors ${
+            className={`shrink-0 px-4 py-2 text-sm font-medium transition-colors ${
               viewTab === "explore"
                 ? "border-b-2 border-white text-white"
                 : "text-zinc-400 hover:text-white"
