@@ -29,60 +29,36 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { useAuth } from "@/lib/auth-context";
+import { useCompanyContext } from "@/lib/company-context";
+import {
+  buildExploreInput,
+  clampExploreLimit,
+  executeExploreSegment,
+  exploreRecordToRow,
+  EXPLORE_DEFAULT_PREVIEW_LIMIT,
+  EXPLORE_MAX_LIMIT,
+  EXPLORE_MIN_LIMIT,
+  EXPLORE_OPERATION_ID,
+  type ExploreEntityMode,
+  type ExploreExecuteRequestBody,
+  type ExplorePreviewRow,
+} from "@/features/tam/explore-api";
 import { formatNumber } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 type PreviewEntity = "brands" | "locations";
 
-const BRAND_ROWS = [
-  {
-    name: "REVIV TO THRIVE WELLNESS",
-    address: "18753 SPRING ST HERMITAGE MO 65668",
-    msa: "Houston-Pasadena-The Woodlands, TX",
-  },
-  {
-    name: "ELITE AESTHETICS STUDIO",
-    address: "4521 MARKET ST STE 200 PHILADELPHIA PA 19104",
-    msa: "Philadelphia-Camden-Wilmington, PA-NJ-DE-MD",
-  },
-  {
-    name: "LUMIN SKIN + BODY",
-    address: "8901 W SUNSET BLVD LOS ANGELES CA 90069",
-    msa: "Los Angeles-Long Beach-Anaheim, CA",
-  },
-  {
-    name: "NOVA MED SPA COLLECTIVE",
-    address: "2100 N COLLINS ST ARLINGTON TX 76011",
-    msa: "Dallas-Fort Worth-Arlington, TX",
-  },
-  {
-    name: "VERVE CLINICAL WELLNESS",
-    address: "155 E BRICKELL AVE MIAMI FL 33131",
-    msa: "Miami-Fort Lauderdale-Pompano Beach, FL",
-  },
-] as const;
-
-const LOCATION_ROWS = [
-  {
-    name: "DALLAS FLAGSHIP CLINIC",
-    address: "4000 MCKINNEY AVE DALLAS TX 75204",
-    msa: "Dallas-Fort Worth-Arlington, TX",
-  },
-  {
-    name: "PHOENIX SCOTTSDALE OUTPOST",
-    address: "7120 E INDIAN SCHOOL RD SCOTTSDALE AZ 85251",
-    msa: "Phoenix-Mesa-Chandler, AZ",
-  },
-  {
-    name: "AUSTIN DOMAIN LOCATION",
-    address: "11410 DOMAIN DR AUSTIN TX 78758",
-    msa: "Austin-Round Rock-San Marcos, TX",
-  },
-] as const;
-
-const BRAND_COUNT = 8556;
-const LOCATION_COUNT = 10177;
-const FILTER_LIMIT = 200;
+const FILTER_BUDGET = 200;
+const SEGMENT_DIALOG_DEFAULT = 50;
 
 function FilterSection({
   title,
@@ -147,81 +123,242 @@ function FilterSection({
 }
 
 export function TAMExploreTab() {
-  const [industryChip, setIndustryChip] = useState("Medical Spa");
-  const [revenueActive, setRevenueActive] = useState(true);
-  const [statusActive, setStatusActive] = useState(true);
+  const { user } = useAuth();
+  const { selectedCompanyId, selectedCompany } = useCompanyContext();
 
-  const appliedFilterCount = useMemo(() => {
-    let n = industryChip ? 1 : 0;
-    if (revenueActive) n += 1;
-    if (statusActive) n += 1;
-    return n;
-  }, [industryChip, revenueActive, statusActive]);
+  const [industry, setIndustry] = useState("Medical Spa");
+  const [states, setStates] = useState("");
+  const [msa, setMsa] = useState("");
+  const [cities, setCities] = useState("");
+  const [zipCodes, setZipCodes] = useState("");
+  const [revenueFrom, setRevenueFrom] = useState("");
+  const [revenueTo, setRevenueTo] = useState("");
+  const [growthFrom, setGrowthFrom] = useState("");
+  const [growthTo, setGrowthTo] = useState("");
+  const [status, setStatus] = useState<"" | "operating" | "closed">("");
 
   const [previewEntity, setPreviewEntity] = useState<PreviewEntity>("brands");
-  const rows = previewEntity === "brands" ? BRAND_ROWS : LOCATION_ROWS;
-  const previewCount = previewEntity === "brands" ? BRAND_COUNT : LOCATION_COUNT;
+  const [brandsRows, setBrandsRows] = useState<ExplorePreviewRow[]>([]);
+  const [locationsRows, setLocationsRows] = useState<ExplorePreviewRow[]>([]);
+  const [brandsCount, setBrandsCount] = useState(0);
+  const [locationsCount, setLocationsCount] = useState(0);
+  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [lastRunLimit, setLastRunLimit] = useState(EXPLORE_DEFAULT_PREVIEW_LIMIT);
+  const [maxResults, setMaxResults] = useState(EXPLORE_DEFAULT_PREVIEW_LIMIT);
+  const [generateConfirmOpen, setGenerateConfirmOpen] = useState(false);
+  const [segmentDialogOpen, setSegmentDialogOpen] = useState(false);
+  const [segmentLimitInput, setSegmentLimitInput] = useState(String(SEGMENT_DIALOG_DEFAULT));
+
+  const appliedFilterCount = useMemo(() => {
+    let n = 0;
+    if (industry.trim()) n += 1;
+    if (states.trim()) n += 1;
+    if (msa.trim()) n += 1;
+    if (cities.trim()) n += 1;
+    if (zipCodes.trim()) n += 1;
+    if (revenueFrom.trim() || revenueTo.trim()) n += 1;
+    if (growthFrom.trim() || growthTo.trim()) n += 1;
+    if (status) n += 1;
+    return n;
+  }, [
+    industry,
+    states,
+    msa,
+    cities,
+    zipCodes,
+    revenueFrom,
+    revenueTo,
+    growthFrom,
+    growthTo,
+    status,
+  ]);
+
+  const entityTypeForPreview = (): ExploreEntityMode =>
+    previewEntity === "brands" ? "BRAND" : "OPERATING_LOCATION";
+
+  const rows = previewEntity === "brands" ? brandsRows : locationsRows;
+  const previewCount = previewEntity === "brands" ? brandsCount : locationsCount;
+
+  const effectiveCompanyId = user?.company_id ?? selectedCompanyId;
+  const companyLabel = selectedCompany?.name ?? "selected company";
+
+  const runExecute = async (limit: number) => {
+    const safeLimit = clampExploreLimit(limit);
+    setError(null);
+    if (!user?.org_id) {
+      setError("You must be signed in to run Explore.");
+      return;
+    }
+    if (!effectiveCompanyId) {
+      setError(
+        "Select a client company in the sidebar (not “All Companies”) before generating a segment."
+      );
+      return;
+    }
+
+    const input = buildExploreInput({
+      prompt: industry,
+      state: states,
+      msa,
+      city: cities,
+      zipCodes,
+      revenueFrom,
+      revenueTo,
+      growthFrom,
+      growthTo,
+      status,
+      entityType: entityTypeForPreview(),
+      limit: safeLimit,
+    });
+
+    const body = {
+      operation_id: EXPLORE_OPERATION_ID,
+      entity_type: "company" as const,
+      input,
+      org_id: user.org_id,
+      company_id: effectiveCompanyId,
+      persist: true,
+    } satisfies ExploreExecuteRequestBody;
+
+    const json = await executeExploreSegment(body);
+    const out = json.data?.output;
+    const count = out?.result_count ?? 0;
+
+    if (previewEntity === "brands") {
+      const list = out?.brands ?? [];
+      setBrandsRows(list.map((r) => exploreRecordToRow(r, "brands")));
+      setBrandsCount(count || list.length);
+    } else {
+      const list = out?.locations ?? [];
+      setLocationsRows(list.map((r) => exploreRecordToRow(r, "locations")));
+      setLocationsCount(count || list.length);
+    }
+    setLastRunLimit(safeLimit);
+  };
+
+  const performGenerateAfterConfirm = async () => {
+    const limit = clampExploreLimit(maxResults);
+    setIsLoading(true);
+    try {
+      await runExecute(limit);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Request failed");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const performFullSegmentAfterConfirm = async () => {
+    const raw =
+      segmentLimitInput.trim() === "" ? SEGMENT_DIALOG_DEFAULT : segmentLimitInput;
+    const limit = clampExploreLimit(raw);
+    setIsLoading(true);
+    try {
+      await runExecute(limit);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Request failed");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const clearIndustry = () => setIndustry("");
 
   return (
     <div className="flex min-h-[min(720px,calc(100vh-12rem))] flex-col gap-6 lg:flex-row lg:items-stretch">
-      {/* Filters sidebar */}
       <aside className="flex w-full flex-col gap-3 lg:w-[min(100%,380px)] lg:shrink-0">
         <div className="flex items-baseline justify-between gap-2">
           <h2 className="text-sm font-semibold tracking-wide text-zinc-100">Filters</h2>
           <span className="text-xs text-zinc-500">
-            {appliedFilterCount}/{FILTER_LIMIT}
+            {appliedFilterCount}/{FILTER_BUDGET}
           </span>
         </div>
+
+        {error ? (
+          <div className="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">
+            {error}
+          </div>
+        ) : null}
 
         <div className="flex flex-1 flex-col gap-2.5 overflow-y-auto pr-1">
           <FilterSection
             title="Industry"
-            activeCount={industryChip ? 1 : 0}
+            activeCount={industry.trim() ? 1 : 0}
             locked
             defaultOpen
-            onClearActive={industryChip ? () => setIndustryChip("") : undefined}
+            onClearActive={industry.trim() ? clearIndustry : undefined}
           >
             <div className="space-y-2">
-              <div className="flex flex-wrap items-center gap-2">
-                {industryChip ? (
-                  <span className="inline-flex items-center gap-1 rounded-md border border-blue-500/45 bg-blue-600/20 px-2 py-1 text-xs font-medium text-blue-300">
-                    {industryChip}
-                  </span>
-                ) : null}
-                <span className="text-xs text-zinc-500">
-                  {industryChip ? `${formatNumber(4786)} total` : "Search to add industries"}
-                </span>
-              </div>
-              <Input placeholder="Search industries…" className="h-8 text-xs" />
+              <Label className="text-xs text-zinc-500">Industry / prompt</Label>
+              <Input
+                placeholder="e.g. Medical Spa"
+                className="h-8 text-xs"
+                value={industry}
+                onChange={(e) => setIndustry(e.target.value)}
+              />
             </div>
           </FilterSection>
 
-          <FilterSection title="Location" activeCount={0} defaultOpen>
+          <FilterSection title="Location" activeCount={[states, msa, cities, zipCodes].some((s) => s.trim()) ? 1 : 0} defaultOpen>
             <div className="space-y-2">
               <div>
                 <Label className="text-xs text-zinc-500">States</Label>
-                <Input placeholder="e.g. New York" className="mt-1 h-8 text-xs" />
+                <Input
+                  placeholder="e.g. NY, CA or New York"
+                  className="mt-1 h-8 text-xs"
+                  value={states}
+                  onChange={(e) => setStates(e.target.value)}
+                />
               </div>
               <div>
                 <Label className="text-xs text-zinc-500">Metropolitan Statistical Areas</Label>
-                <Input placeholder="Search MSAs…" className="mt-1 h-8 text-xs" />
+                <Input
+                  placeholder="Search MSAs…"
+                  className="mt-1 h-8 text-xs"
+                  value={msa}
+                  onChange={(e) => setMsa(e.target.value)}
+                />
               </div>
               <div>
                 <Label className="text-xs text-zinc-500">Cities</Label>
-                <Input placeholder="City" className="mt-1 h-8 text-xs" />
+                <Input
+                  placeholder="City"
+                  className="mt-1 h-8 text-xs"
+                  value={cities}
+                  onChange={(e) => setCities(e.target.value)}
+                />
               </div>
               <div>
                 <Label className="text-xs text-zinc-500">Zip Codes</Label>
-                <Input placeholder="Comma-separated zips" className="mt-1 h-8 text-xs" />
+                <Input
+                  placeholder="Comma-separated zips"
+                  className="mt-1 h-8 text-xs"
+                  value={zipCodes}
+                  onChange={(e) => setZipCodes(e.target.value)}
+                />
               </div>
             </div>
           </FilterSection>
 
           <FilterSection
             title="Card Revenue"
-            activeCount={revenueActive ? 1 : 0}
+            activeCount={
+              revenueFrom.trim() || revenueTo.trim() || growthFrom.trim() || growthTo.trim()
+                ? 1
+                : 0
+            }
             defaultOpen
-            onClearActive={revenueActive ? () => setRevenueActive(false) : undefined}
+            onClearActive={
+              revenueFrom || revenueTo || growthFrom || growthTo
+                ? () => {
+                    setRevenueFrom("");
+                    setRevenueTo("");
+                    setGrowthFrom("");
+                    setGrowthTo("");
+                  }
+                : undefined
+            }
           >
             <div className="space-y-3">
               <div className="flex items-center gap-2">
@@ -231,8 +368,18 @@ export function TAMExploreTab() {
                 </Badge>
               </div>
               <div className="grid grid-cols-2 gap-2">
-                <Input placeholder="From" className="h-8 text-xs" type="text" />
-                <Input placeholder="To" className="h-8 text-xs" type="text" />
+                <Input
+                  placeholder="From"
+                  className="h-8 text-xs"
+                  value={revenueFrom}
+                  onChange={(e) => setRevenueFrom(e.target.value)}
+                />
+                <Input
+                  placeholder="To"
+                  className="h-8 text-xs"
+                  value={revenueTo}
+                  onChange={(e) => setRevenueTo(e.target.value)}
+                />
               </div>
               <div className="flex items-center gap-2">
                 <Label className="text-xs text-zinc-400">Annual Growth Rate %</Label>
@@ -241,52 +388,124 @@ export function TAMExploreTab() {
                 </Badge>
               </div>
               <div className="grid grid-cols-2 gap-2">
-                <Input placeholder="From %" className="h-8 text-xs" />
-                <Input placeholder="To %" className="h-8 text-xs" />
+                <Input
+                  placeholder="From %"
+                  className="h-8 text-xs"
+                  value={growthFrom}
+                  onChange={(e) => setGrowthFrom(e.target.value)}
+                />
+                <Input
+                  placeholder="To %"
+                  className="h-8 text-xs"
+                  value={growthTo}
+                  onChange={(e) => setGrowthTo(e.target.value)}
+                />
               </div>
             </div>
           </FilterSection>
 
           <FilterSection
             title="Status"
-            activeCount={statusActive ? 1 : 0}
+            activeCount={status ? 1 : 0}
             defaultOpen={false}
-            onClearActive={statusActive ? () => setStatusActive(false) : undefined}
+            onClearActive={status ? () => setStatus("") : undefined}
           >
             <p className="text-xs text-zinc-500">Refine by operating or historical status.</p>
             <div className="mt-2 flex flex-wrap gap-2">
-              <span className="rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-xs text-zinc-300">
+              <button
+                type="button"
+                onClick={() => setStatus("operating")}
+                className={cn(
+                  "rounded-md border px-2 py-1 text-xs transition-colors",
+                  status === "operating"
+                    ? "border-zinc-500 bg-zinc-800 text-zinc-100"
+                    : "border-zinc-700 bg-zinc-900 text-zinc-400 hover:border-zinc-600"
+                )}
+              >
                 Operating
-              </span>
-              <span className="rounded-md border border-zinc-800 px-2 py-1 text-xs text-zinc-500">
+              </button>
+              <button
+                type="button"
+                onClick={() => setStatus("closed")}
+                className={cn(
+                  "rounded-md border px-2 py-1 text-xs transition-colors",
+                  status === "closed"
+                    ? "border-zinc-500 bg-zinc-800 text-zinc-100"
+                    : "border-zinc-800 text-zinc-500 hover:border-zinc-600 hover:text-zinc-300"
+                )}
+              >
                 Closed
-              </span>
+              </button>
             </div>
           </FilterSection>
         </div>
 
-        <div className="mt-auto flex gap-2 border-t border-zinc-800/80 pt-3">
+        <div className="mt-auto flex flex-col gap-2 border-t border-zinc-800/80 pt-3">
           <Button
             type="button"
             variant="secondary"
-            className="flex-1 border border-zinc-700 bg-zinc-900"
+            className="w-full border border-zinc-700 bg-zinc-900"
+            disabled={isLoading}
             onClick={() => {
-              setIndustryChip("");
-              setRevenueActive(false);
-              setStatusActive(false);
+              setIndustry("");
+              setStates("");
+              setMsa("");
+              setCities("");
+              setZipCodes("");
+              setRevenueFrom("");
+              setRevenueTo("");
+              setGrowthFrom("");
+              setGrowthTo("");
+              setStatus("");
+              setBrandsRows([]);
+              setLocationsRows([]);
+              setBrandsCount(0);
+              setLocationsCount(0);
+              setError(null);
+              setLastRunLimit(EXPLORE_DEFAULT_PREVIEW_LIMIT);
+              setMaxResults(EXPLORE_DEFAULT_PREVIEW_LIMIT);
+              setSegmentLimitInput(String(SEGMENT_DIALOG_DEFAULT));
             }}
           >
             <X className="size-4" />
             Reset
           </Button>
-          <Button type="button" className="flex-1">
+        <div className="flex items-end gap-2">
+          <div className="min-w-0 flex-1 space-y-1">
+            <Label htmlFor="explore-max-results" className="text-xs text-zinc-500">
+              Max Results
+            </Label>
+            <Input
+              id="explore-max-results"
+              type="number"
+              min={EXPLORE_MIN_LIMIT}
+              max={EXPLORE_MAX_LIMIT}
+              step={1}
+              className="h-9 text-xs"
+              value={maxResults}
+              onChange={(e) => {
+                const raw = e.target.value;
+                if (raw === "") return;
+                const n = parseInt(raw, 10);
+                if (Number.isNaN(n)) return;
+                setMaxResults(n);
+              }}
+              onBlur={() => setMaxResults((m) => clampExploreLimit(m))}
+            />
+          </div>
+          <Button
+            type="button"
+            className="h-9 shrink-0 px-4"
+            disabled={isLoading}
+            onClick={() => setGenerateConfirmOpen(true)}
+          >
             Generate
             <ArrowRight className="size-4" />
           </Button>
         </div>
+        </div>
       </aside>
 
-      {/* Preview */}
       <section className="flex min-w-0 flex-1 flex-col rounded-lg border border-zinc-800/80 bg-black/40">
         <div className="flex items-center justify-between gap-3 border-b border-zinc-800/80 px-4 py-3">
           <div className="flex items-center gap-2 text-zinc-100">
@@ -317,7 +536,7 @@ export function TAMExploreTab() {
             >
               <Tag className="size-3.5" />
               Brands
-              <span className="tabular-nums text-zinc-400">{formatNumber(BRAND_COUNT)}</span>
+              <span className="tabular-nums text-zinc-400">{formatNumber(brandsCount)}</span>
             </button>
             <button
               type="button"
@@ -331,76 +550,86 @@ export function TAMExploreTab() {
             >
               <Store className="size-3.5" />
               Operating Locations
-              <span className="tabular-nums text-zinc-400">{formatNumber(LOCATION_COUNT)}</span>
+              <span className="tabular-nums text-zinc-400">{formatNumber(locationsCount)}</span>
             </button>
           </div>
         </div>
 
         <div className="min-h-0 flex-1 overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow className="border-zinc-800/80 hover:bg-transparent">
-                <TableHead className="w-[32%] whitespace-nowrap text-[11px] font-medium uppercase tracking-wide text-zinc-500">
-                  <span className="inline-flex items-center gap-1">
-                    Name
-                    <Info className="size-3 text-zinc-600" />
-                  </span>
-                </TableHead>
-                <TableHead className="whitespace-nowrap text-[11px] font-medium uppercase tracking-wide text-zinc-500">
-                  <span className="inline-flex items-center gap-1">
-                    Primary address
-                    <Info className="size-3 text-zinc-600" />
-                  </span>
-                </TableHead>
-                <TableHead className="whitespace-nowrap text-[11px] font-medium uppercase tracking-wide text-zinc-500">
-                  <span className="inline-flex items-center gap-1">
-                    Primary MSA
-                    <Info className="size-3 text-zinc-600" />
-                  </span>
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rows.map((row, i) => (
-                <TableRow
-                  key={`${previewEntity}-${row.name}-${i}`}
-                  className={cn(
-                    "border-zinc-800/80",
-                    i % 2 === 1 ? "bg-zinc-950/70" : "bg-transparent"
-                  )}
-                >
-                  <TableCell className="align-middle font-medium uppercase tracking-wide text-white">
-                    <span className="inline-flex w-full items-center justify-between gap-2">
-                      <span className="min-w-0 truncate">{row.name}</span>
-                      <Tag className="size-3.5 shrink-0 text-zinc-600" />
+          {isLoading ? (
+            <p className="px-4 py-8 text-center text-sm text-zinc-500">Loading…</p>
+          ) : rows.length === 0 ? (
+            <p className="px-4 py-8 text-center text-sm text-zinc-500">
+              Run Generate to preview results for {companyLabel}.
+            </p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow className="border-zinc-800/80 hover:bg-transparent">
+                  <TableHead className="w-[32%] whitespace-nowrap text-[11px] font-medium uppercase tracking-wide text-zinc-500">
+                    <span className="inline-flex items-center gap-1">
+                      Name
+                      <Info className="size-3 text-zinc-600" />
                     </span>
-                  </TableCell>
-                  <TableCell className="align-middle uppercase tracking-wide text-zinc-200">
-                    <span className="inline-flex w-full items-center justify-between gap-2">
-                      <span className="min-w-0 truncate">{row.address}</span>
-                      <MapPin className="size-3.5 shrink-0 text-zinc-600" />
+                  </TableHead>
+                  <TableHead className="whitespace-nowrap text-[11px] font-medium uppercase tracking-wide text-zinc-500">
+                    <span className="inline-flex items-center gap-1">
+                      Primary address
+                      <Info className="size-3 text-zinc-600" />
                     </span>
-                  </TableCell>
-                  <TableCell className="max-w-[220px] truncate text-zinc-400">
-                    <span className="inline-flex w-full items-center justify-between gap-2">
-                      <span className="min-w-0 truncate">{row.msa}</span>
-                      <Crosshair className="size-3.5 shrink-0 text-zinc-600" />
+                  </TableHead>
+                  <TableHead className="whitespace-nowrap text-[11px] font-medium uppercase tracking-wide text-zinc-500">
+                    <span className="inline-flex items-center gap-1">
+                      Primary MSA
+                      <Info className="size-3 text-zinc-600" />
                     </span>
-                  </TableCell>
+                  </TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {rows.map((row, i) => (
+                  <TableRow
+                    key={`${previewEntity}-${row.name}-${i}`}
+                    className={cn(
+                      "border-zinc-800/80",
+                      i % 2 === 1 ? "bg-zinc-950/70" : "bg-transparent"
+                    )}
+                  >
+                    <TableCell className="align-middle font-medium uppercase tracking-wide text-white">
+                      <span className="inline-flex w-full items-center justify-between gap-2">
+                        <span className="min-w-0 truncate">{row.name}</span>
+                        <Tag className="size-3.5 shrink-0 text-zinc-600" />
+                      </span>
+                    </TableCell>
+                    <TableCell className="align-middle uppercase tracking-wide text-zinc-200">
+                      <span className="inline-flex w-full items-center justify-between gap-2">
+                        <span className="min-w-0 truncate">{row.address}</span>
+                        <MapPin className="size-3.5 shrink-0 text-zinc-600" />
+                      </span>
+                    </TableCell>
+                    <TableCell className="max-w-[220px] truncate text-zinc-400">
+                      <span className="inline-flex w-full items-center justify-between gap-2">
+                        <span className="min-w-0 truncate">{row.msa}</span>
+                        <Crosshair className="size-3.5 shrink-0 text-zinc-600" />
+                      </span>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </div>
 
         <div className="flex flex-col gap-3 border-t border-zinc-800/80 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-wrap items-center gap-3 text-xs text-zinc-500">
             <span>
-              Page size: <span className="text-zinc-300">50</span>
+              Page size: <span className="text-zinc-300">{lastRunLimit}</span>
             </span>
             <span className="text-zinc-600">·</span>
             <span>
-              1 to {rows.length} of {formatNumber(previewCount)}
+              {rows.length === 0
+                ? "No rows"
+                : `1 to ${rows.length} of ${formatNumber(previewCount)}`}
             </span>
           </div>
           <div className="flex items-center gap-1 text-xs text-zinc-500">
@@ -421,15 +650,102 @@ export function TAMExploreTab() {
         </div>
 
         <div className="border-t border-zinc-800/80 p-4">
-          <Button type="button" className="h-10 w-full text-sm font-medium">
+          <Button
+            type="button"
+            className="h-10 w-full text-sm font-medium"
+            disabled={isLoading}
+            onClick={() => {
+              setSegmentLimitInput(String(SEGMENT_DIALOG_DEFAULT));
+              setSegmentDialogOpen(true);
+            }}
+          >
             Generate full segment file
             <ArrowRight className="size-4" />
           </Button>
           <p className="mt-2 text-center text-[11px] text-zinc-600">
-            Showing sample rows — connect filters to your data source when the API is available.
+            Confirm max results (1–250) before running. Requires a company context in the sidebar.
           </p>
         </div>
       </section>
+
+      <Dialog open={generateConfirmOpen} onOpenChange={setGenerateConfirmOpen}>
+        <DialogContent className="border-zinc-800 bg-zinc-900">
+          <DialogHeader>
+            <DialogTitle className="text-white">Confirm Enigma query</DialogTitle>
+            <DialogDescription className="text-zinc-400">
+              This will query Enigma for up to {clampExploreLimit(maxResults)} results (~
+              {clampExploreLimit(maxResults) * 2} credits). Continue?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="secondary"
+              className="border border-zinc-700 bg-zinc-800"
+              onClick={() => setGenerateConfirmOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={() => {
+                setGenerateConfirmOpen(false);
+                void performGenerateAfterConfirm();
+              }}
+            >
+              Confirm
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={segmentDialogOpen} onOpenChange={setSegmentDialogOpen}>
+        <DialogContent className="border-zinc-800 bg-zinc-900">
+          <DialogHeader>
+            <DialogTitle className="text-white">Full segment generation</DialogTitle>
+            <DialogDescription className="text-zinc-400">
+              Full segment generation may use significant credits. Enter the number of results:
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-1 px-5">
+            <Label htmlFor="segment-max-results" className="text-xs text-zinc-500">
+              Max Results
+            </Label>
+            <Input
+              id="segment-max-results"
+              type="number"
+              min={EXPLORE_MIN_LIMIT}
+              max={EXPLORE_MAX_LIMIT}
+              step={1}
+              className="h-9 text-white"
+              value={segmentLimitInput}
+              onChange={(e) => setSegmentLimitInput(e.target.value)}
+              onBlur={() =>
+                setSegmentLimitInput(String(clampExploreLimit(segmentLimitInput)))
+              }
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="secondary"
+              className="border border-zinc-700 bg-zinc-800"
+              onClick={() => setSegmentDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={() => {
+                setSegmentDialogOpen(false);
+                void performFullSegmentAfterConfirm();
+              }}
+            >
+              Confirm
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
