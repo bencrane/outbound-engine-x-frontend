@@ -62,7 +62,9 @@ This is a conversation. You're helpful and easy to work with. Ask one thing at a
 - Never use exclamation points.
 - After showing results, wait. They'll tell you what they want next.
 
-You also have access to Enigma's SMB business database via the enigmaDiscover tool. When a user asks to find or discover businesses by category, industry, or location, use generate_locations_segment for location-level results (addresses, phones) or generate_brands_segment for brand-level results (company names, websites, revenue). Always set a limit (default 10) to control credit usage. For looking up a specific business by name, use search_business. For deeper analysis on a known brand, use get_brand_card_analytics (revenue), get_brand_locations (all locations), or get_brand_legal_entities (corporate structure).`;
+You also have access to Enigma's SMB business database via the enigmaDiscover tool. When a user asks to find or discover businesses by category, industry, or location, use generate_locations_segment for location-level results (addresses, phones) or generate_brands_segment for brand-level results (company names, websites, revenue). Always set a limit (default 10) to control credit usage. For looking up a specific business by name, use search_business. For deeper analysis on a known brand, use get_brand_card_analytics (revenue), get_brand_locations (all locations), or get_brand_legal_entities (corporate structure).
+
+You also have access to BlitzAPI for LinkedIn-sourced company and people data. Use blitzapiSearch to find companies by industry/size/location, find decision-makers at specific companies (waterfall ICP search), or browse employees with filters. Use blitzapiEnrich to find work emails from LinkedIn URLs, find mobile phones (US only, 5 credits), enrich company profiles, resolve domains to LinkedIn URLs and vice versa, validate emails, or do reverse lookups from email/phone to person profiles. BlitzAPI uses LinkedIn as its primary data source — complementary to Enigma which uses financial/location data.`;
 
 async function dataEngineFetch(
   path: string,
@@ -415,6 +417,91 @@ export async function POST(req: Request) {
         inputSchema: z.object({}),
         execute: async () => {
           return dataEngineFetch("/v1/enigma-mcp/tools", { method: "GET" });
+        },
+      }),
+      blitzapiSearch: tool({
+        description:
+          "Search for companies or people using BlitzAPI's LinkedIn-sourced data. Use this when the user asks to find companies by industry/size/location, find employees at a company, or find decision-makers matching an ICP. For company search use operation 'company.search.blitzapi'. For finding decision-makers at a specific company use 'person.search.waterfall_icp_blitzapi'. For browsing employees with filters use 'person.search.employee_finder_blitzapi'.",
+        inputSchema: z.object({
+          operation_id: z
+            .enum([
+              "company.search.blitzapi",
+              "person.search.waterfall_icp_blitzapi",
+              "person.search.employee_finder_blitzapi",
+            ])
+            .describe(
+              "Which BlitzAPI search to run. 'company.search.blitzapi' finds companies by industry/size/location. 'person.search.waterfall_icp_blitzapi' finds decision-makers at a specific company using cascading title matching. 'person.search.employee_finder_blitzapi' browses employees at a company with filters."
+            ),
+          input: z
+            .record(z.string(), z.any())
+            .describe(
+              "Input for the operation. For company.search.blitzapi: company_name (string), company_industry (string[]), company_employee_range (string[]), company_hq_country_code (string[]), max_results (number, default 10). For person.search.waterfall_icp_blitzapi: company_linkedin_url (string, required), cascade (array of { include_title: string[], location: string[] }), max_results (number, default 5). For person.search.employee_finder_blitzapi: company_linkedin_url (string, required), job_level (string[]), job_function (string[]), country_code (string[]), max_results (number, default 10)."
+            ),
+          persist: z
+            .boolean()
+            .optional()
+            .default(true)
+            .describe(
+              "Whether to save results to the database. Default true."
+            ),
+        }),
+        execute: async (params) => {
+          return dataEngineFetch("/v1/execute", {
+            body: {
+              operation_id: params.operation_id,
+              entity_type: params.operation_id.startsWith("company")
+                ? "company"
+                : "person",
+              input: params.input,
+              org_id: "7612fd45-8fda-4b6b-af7f-c8b0ebaa3a19",
+              company_id: "d46d079b-67ab-4e70-8c8c-503f6014f1af",
+              persist: params.persist,
+            },
+          });
+        },
+      }),
+      blitzapiEnrich: tool({
+        description:
+          "Enrich a company or person using BlitzAPI. Use this to find work emails, phone numbers, company profiles, or resolve domains/LinkedIn URLs. For finding someone's work email use 'person.contact.resolve_email_blitzapi'. For finding a mobile phone use 'person.contact.resolve_mobile_phone_blitzapi'. For enriching a company profile use 'company.enrich.blitzapi'. For resolving a domain to LinkedIn URL use 'company.resolve.linkedin_from_domain_blitzapi'. For resolving LinkedIn to domain use 'company.resolve.domain_from_linkedin_blitzapi'. For validating an email use 'person.contact.verify_email_blitzapi'. For reverse email lookup use 'person.resolve.from_email'. For reverse phone lookup use 'person.resolve.from_phone'.",
+        inputSchema: z.object({
+          operation_id: z
+            .enum([
+              "person.contact.resolve_email_blitzapi",
+              "person.contact.resolve_mobile_phone_blitzapi",
+              "person.contact.verify_email_blitzapi",
+              "person.resolve.from_email",
+              "person.resolve.from_phone",
+              "company.enrich.blitzapi",
+              "company.resolve.linkedin_from_domain_blitzapi",
+              "company.resolve.domain_from_linkedin_blitzapi",
+            ])
+            .describe("Which enrichment operation to run."),
+          input: z
+            .record(z.string(), z.any())
+            .describe(
+              "Input for the operation. For person.contact.resolve_email_blitzapi: person_linkedin_url (string). For person.contact.resolve_mobile_phone_blitzapi: person_linkedin_url (string, 5 credits, US only). For person.contact.verify_email_blitzapi: email (string). For person.resolve.from_email: email (string). For person.resolve.from_phone: phone (string). For company.enrich.blitzapi: company_linkedin_url (string). For company.resolve.linkedin_from_domain_blitzapi: domain (string). For company.resolve.domain_from_linkedin_blitzapi: company_linkedin_url (string)."
+            ),
+          persist: z
+            .boolean()
+            .optional()
+            .default(true)
+            .describe(
+              "Whether to save results to the database. Default true."
+            ),
+        }),
+        execute: async (params) => {
+          return dataEngineFetch("/v1/execute", {
+            body: {
+              operation_id: params.operation_id,
+              entity_type: params.operation_id.startsWith("company")
+                ? "company"
+                : "person",
+              input: params.input,
+              org_id: "7612fd45-8fda-4b6b-af7f-c8b0ebaa3a19",
+              company_id: "d46d079b-67ab-4e70-8c8c-503f6014f1af",
+              persist: params.persist,
+            },
+          });
         },
       }),
     },
