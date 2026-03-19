@@ -45,8 +45,26 @@ I tell you what I want. You figure out which tool to use. You confirm before run
 - Looking up a single company → use getCompany
 - Looking up a single person → use getPerson
 - Checking available search filters → use getSearchFilters
+- Finding trucking carriers by state/fleet size/safety → use fmcsaSearch with "search"
+- Carriers losing insurance coverage → use fmcsaSearch with "safe-losing-coverage"
+- New carriers needing insurance → use fmcsaSearch with "safe-new-entrants"
+- Safe mid-market fleets (10-50 trucks) → use fmcsaSearch with "safe-mid-market"
+- Insurance cancellations with custom filters → use fmcsaSearch with "insurance-cancellations"
+- New operating authority grants → use fmcsaSearch with "new-authority"
+- FMCSA carrier statistics → use fmcsaSearch with "stats"
+- Full carrier detail by DOT number → use fmcsaCarrierDetail
+- Federal contractor search (SAM.gov) → use samGovSearch with "search"
+- Federal contractor statistics → use samGovSearch with "stats"
+- SBA loan search → use sbaLoanSearch with "search"
+- SBA loan statistics → use sbaLoanSearch with "stats"
 
-Always ask which provider to use before running any search or discovery. Present the options that make sense for my request (e.g. "Enigma or BlitzAPI?" for company search). If I explicitly name a provider in my request, use that one without asking.
+Always ask which provider or data source to use before running any search or discovery. Present the options that make sense for my request. For example:
+- SMB business discovery → "Enigma or BlitzAPI?"
+- People/decision-makers → "BlitzAPI"
+- Trucking carriers/insurance → "FMCSA data" (no need to ask, just confirm)
+- Federal contractors → "SAM.gov data" (no need to ask, just confirm)
+- SBA loans → "SBA data" (no need to ask, just confirm)
+If I explicitly name a provider or data source, use it without asking.
 
 ## Limits and credits
 
@@ -526,6 +544,119 @@ export async function POST(req: Request) {
               company_id: "d46d079b-67ab-4e70-8c8c-503f6014f1af",
               persist: params.persist,
             },
+          });
+        },
+      }),
+      fmcsaSearch: tool({
+        description:
+          "Search FMCSA motor carrier data — find trucking companies, carriers losing insurance, new authority grants, and fleet analytics. This queries our own database of 2.58M US carriers updated daily from federal data.",
+        inputSchema: z.object({
+          endpoint: z
+            .enum([
+              "search",
+              "insurance-cancellations",
+              "new-authority",
+              "safe-losing-coverage",
+              "safe-new-entrants",
+              "safe-mid-market",
+              "stats",
+            ])
+            .describe(
+              "Which FMCSA query to run. 'search' for general carrier search with filters. 'insurance-cancellations' for carriers losing coverage. 'new-authority' for carriers just granted operating authority. 'safe-losing-coverage' for safe carriers losing coverage (pre-filtered: no alerts, percentiles below 50, no crashes). 'safe-new-entrants' for safe new carriers needing insurance. 'safe-mid-market' for safe carriers with 10-50 trucks. 'stats' for aggregate statistics."
+            ),
+          filters: z
+            .record(z.string(), z.any())
+            .optional()
+            .default({})
+            .describe(
+              "Filters for the query. Common filters: state (string), min_fleet_size (number), max_fleet_size (number), has_email (boolean), has_phone (boolean), safe_only (boolean), date_range_days (number, default 30 for cancellations, 60 for new authority). For stats: state (string) to filter by state. For search: safety_rating_code (string), has_alerts (boolean), has_crashes (boolean)."
+            ),
+          limit: z
+            .number()
+            .optional()
+            .default(DEFAULT_RESULT_LIMIT)
+            .describe("Max results. Default 10."),
+        }),
+        execute: async (params) => {
+          const body = {
+            ...params.filters,
+            limit: params.limit,
+          };
+          return dataEngineFetch(
+            `/v1/fmcsa/carriers/${params.endpoint}`,
+            { body }
+          );
+        },
+      }),
+      fmcsaCarrierDetail: tool({
+        description:
+          "Get full details for a specific carrier by DOT number. Returns census data, safety scores, insurance policies, authority grants, and crash history.",
+        inputSchema: z.object({
+          dot_number: z
+            .string()
+            .describe("The carrier's DOT number"),
+        }),
+        execute: async ({ dot_number }) => {
+          return dataEngineFetch(`/v1/fmcsa/carriers/${dot_number}`, {
+            method: "GET",
+          });
+        },
+      }),
+      samGovSearch: tool({
+        description:
+          "Search SAM.gov federal contractor registrations. Find companies registered for government contracting by state, NAICS code, or name.",
+        inputSchema: z.object({
+          endpoint: z
+            .enum(["search", "stats"])
+            .describe(
+              "'search' for entity search with filters. 'stats' for aggregate statistics by state/NAICS."
+            ),
+          filters: z
+            .record(z.string(), z.any())
+            .optional()
+            .default({})
+            .describe(
+              "Filters: state (string), naics_code (string), registration_status (string), entity_name (string), uei (string)."
+            ),
+          limit: z
+            .number()
+            .optional()
+            .default(DEFAULT_RESULT_LIMIT)
+            .describe("Max results. Default 10."),
+        }),
+        execute: async (params) => {
+          const body = { ...params.filters, limit: params.limit };
+          return dataEngineFetch(`/v1/sam/entities/${params.endpoint}`, {
+            body,
+          });
+        },
+      }),
+      sbaLoanSearch: tool({
+        description:
+          "Search SBA 7(a) loan records. Find businesses that received SBA loans by state, amount range, or borrower name.",
+        inputSchema: z.object({
+          endpoint: z
+            .enum(["search", "stats"])
+            .describe(
+              "'search' for loan search with filters. 'stats' for aggregate statistics by state."
+            ),
+          filters: z
+            .record(z.string(), z.any())
+            .optional()
+            .default({})
+            .describe(
+              "Filters: state (string), min_amount (number), max_amount (number), borrower_name (string), date_from (string YYYY-MM-DD), date_to (string YYYY-MM-DD)."
+            ),
+          limit: z
+            .number()
+            .optional()
+            .default(DEFAULT_RESULT_LIMIT)
+            .describe("Max results. Default 10."),
+        }),
+        execute: async (params) => {
+          const body = { ...params.filters, limit: params.limit };
+          return dataEngineFetch(`/v1/sba/loans/${params.endpoint}`, {
+            body,
           });
         },
       }),
