@@ -8,9 +8,10 @@ import { formatNumber } from "@/lib/format";
 
 import { useTAMCompanies, useTAMPeople } from "@/features/tam/api";
 import { TAMCompaniesTable, type TAMCompanySortField, type SortDirection } from "@/features/tam/components/tam-companies-table";
+import { TAMExploreTab } from "@/features/tam/components/tam-explore-tab";
 import { TAMPeopleTable } from "@/features/tam/components/tam-people-table";
 
-type ViewTab = "companies" | "people";
+type ViewTab = "companies" | "people" | "explore";
 
 export default function TAMPage() {
   const { user } = useAuth();
@@ -58,7 +59,11 @@ export default function TAMPage() {
     <RouteGuard permission="tam.view">
       <div className="p-8">
         <h1 className="text-2xl font-semibold text-white">Total Addressable Market</h1>
-        <p className="mt-1 text-zinc-400">View companies and people in the database</p>
+        <p className="mt-1 text-zinc-400">
+          {viewTab === "explore"
+            ? "Filter the universe and preview a segment before you export."
+            : "View companies and people in the database"}
+        </p>
         {user?.company_id === null && (
           <p className="mt-0.5 text-sm text-zinc-500">
             Viewing: {selectedCompany?.name ?? "All Companies"}
@@ -87,6 +92,16 @@ export default function TAMPage() {
           >
             People
           </button>
+          <button
+            onClick={() => setViewTab("explore")}
+            className={`px-4 py-2 text-sm font-medium transition-colors ${
+              viewTab === "explore"
+                ? "border-b-2 border-white text-white"
+                : "text-zinc-400 hover:text-white"
+            }`}
+          >
+            Explore
+          </button>
         </div>
 
         <div className="mt-6">
@@ -111,7 +126,7 @@ export default function TAMPage() {
                 }}
               />
             </>
-          ) : (
+          ) : viewTab === "people" ? (
             <>
               <p className="mb-4 text-sm text-zinc-400">
                 Showing {formatNumber(people.length)} people
@@ -122,6 +137,8 @@ export default function TAMPage() {
                 error={peopleError}
               />
             </>
+          ) : (
+            <TAMExploreTab />
           )}
         </div>
       </div>
