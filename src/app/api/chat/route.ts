@@ -60,7 +60,9 @@ This is a conversation. You're helpful and easy to work with. Ask one thing at a
 - One question at a time. Don't stack multiple questions in one message.
 - Match the user's energy and tone.
 - Never use exclamation points.
-- After showing results, wait. They'll tell you what they want next.`;
+- After showing results, wait. They'll tell you what they want next.
+
+You also have access to Enigma's SMB business database via the enigmaDiscover tool. When a user asks to find or discover businesses by category, industry, or location, use generate_locations_segment for location-level results (addresses, phones) or generate_brands_segment for brand-level results (company names, websites, revenue). Always set a limit (default 10) to control credit usage. For looking up a specific business by name, use search_business. For deeper analysis on a known brand, use get_brand_card_analytics (revenue), get_brand_locations (all locations), or get_brand_legal_entities (corporate structure).`;
 
 async function dataEngineFetch(
   path: string,
@@ -363,6 +365,56 @@ export async function POST(req: Request) {
           return dataEngineFetch(`/v1/lists/${list_id}/export`, {
             method: "GET",
           });
+        },
+      }),
+      enigmaDiscover: tool({
+        description:
+          "Discover businesses by type, location, and financial criteria using Enigma's SMB database. Use this when the user asks to find businesses in a category — e.g. 'find dental practices in Texas', 'show me med spas in California with over $500K revenue', 'find car washes in Florida'. Returns business names, addresses, phone numbers, websites, and revenue data. Results are automatically saved to the database when persist is true.",
+        inputSchema: z.object({
+          tool: z
+            .enum([
+              "generate_locations_segment",
+              "generate_brands_segment",
+              "search_business",
+              "get_brand_card_analytics",
+              "get_brand_locations",
+              "get_brand_legal_entities",
+              "get_brands_by_legal_entity",
+            ])
+            .describe(
+              "The Enigma MCP tool to call. Use 'generate_locations_segment' for finding businesses by category/location. Use 'generate_brands_segment' for finding brand-level data. Use 'search_business' for looking up a specific named business. Use 'get_brand_card_analytics' for revenue data on a known brand. Use 'get_brand_locations' for locations of a known brand. Use 'get_brand_legal_entities' for corporate structure. Use 'get_brands_by_legal_entity' for reverse lookup from legal entity to brands."
+            ),
+          arguments: z
+            .record(z.string(), z.any())
+            .describe(
+              "Arguments for the tool. For generate_locations_segment / generate_brands_segment: industry_description (string), states (string[]), cities (string[]), postal_codes (string[]), min_annual_revenue (number), max_annual_revenue (number), limit (number, default 10, max 250). For search_business: query (string), limit (number). For get_brand_card_analytics: brand_id (string). For get_brand_locations: brand_id (string), limit (number). For get_brand_legal_entities: brand_id (string). For get_brands_by_legal_entity: legal_entity_id (string)."
+            ),
+          persist: z
+            .boolean()
+            .optional()
+            .default(true)
+            .describe(
+              "Whether to save results to the database. Default true."
+            ),
+        }),
+        execute: async (params) => {
+          return dataEngineFetch("/v1/enigma-mcp/call", {
+            body: {
+              tool: params.tool,
+              arguments: params.arguments,
+              persist: params.persist,
+              org_id: "7612fd45-8fda-4b6b-af7f-c8b0ebaa3a19",
+              company_id: "d46d079b-67ab-4e70-8c8c-503f6014f1af",
+            },
+          });
+        },
+      }),
+      enigmaListTools: tool({
+        description:
+          "List all available Enigma MCP tools and their parameter schemas. Use this if you need to check what tools are available or what parameters a tool accepts before calling enigmaDiscover.",
+        inputSchema: z.object({}),
+        execute: async () => {
+          return dataEngineFetch("/v1/enigma-mcp/tools", { method: "GET" });
         },
       }),
     },
