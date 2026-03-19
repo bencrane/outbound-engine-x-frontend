@@ -2,6 +2,7 @@
 
 import type { LucideIcon } from "lucide-react";
 import {
+  Compass,
   Inbox,
   LayoutDashboard,
   LogOut,
@@ -54,6 +55,12 @@ const navigation: NavigationItem[] = [
     name: "TAM",
     href: "/tam",
     icon: Globe,
+    permission: "tam.view",
+  },
+  {
+    name: "Explore",
+    href: "/explore",
+    icon: Compass,
     permission: "tam.view",
   },
   {
@@ -152,7 +159,7 @@ export function Sidebar() {
                   : "text-zinc-400 hover:bg-zinc-800/50 hover:text-white"
               }`}
             >
-              <item.icon className="h-5 w-5" />
+              <item.icon className="h-5 w-5 shrink-0" />
               {item.name}
             </Link>
           );
