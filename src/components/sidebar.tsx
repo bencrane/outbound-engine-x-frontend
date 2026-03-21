@@ -8,6 +8,7 @@ import {
   LogOut,
   Mail,
   Megaphone,
+  Paintbrush,
   Phone,
   Settings,
   Users,
@@ -50,6 +51,12 @@ const navigation: NavigationItem[] = [
     href: "/direct-mail",
     icon: Mail,
     permission: "direct-mail.view",
+  },
+  {
+    name: "Mail Designer",
+    href: "/direct-mail-designer",
+    icon: Paintbrush,
+    permission: "direct-mail.manage" as Permission,
   },
   {
     name: "TAM",
