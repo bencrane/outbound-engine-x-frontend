@@ -1,6 +1,5 @@
 import { anthropic } from "@ai-sdk/anthropic";
-import { streamText, convertToModelMessages, type UIMessage } from "ai";
-import { stepCountIs } from "@assistant-ui/react-ai-sdk";
+import { streamText, convertToModelMessages, stepCountIs, type UIMessage } from "ai";
 import type { BrandConfig } from "@/features/direct-mail-designer/types";
 import { getFormatById } from "@/features/direct-mail-designer/lib/formats";
 
