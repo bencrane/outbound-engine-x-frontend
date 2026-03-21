@@ -56,7 +56,7 @@ const navigation: NavigationItem[] = [
     name: "Mail Designer",
     href: "/direct-mail-designer",
     icon: Paintbrush,
-    permission: "direct-mail.manage" as Permission,
+    permission: "direct-mail.view",
   },
   {
     name: "TAM",
