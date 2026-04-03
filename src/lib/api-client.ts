@@ -18,12 +18,7 @@ apiClient.use({
     return request;
   },
   async onResponse({ response }) {
-    if (response.status === 401 && typeof window !== "undefined") {
-      clearToken();
-      if (window.location.pathname !== "/login") {
-        window.location.href = "/login";
-      }
-    }
+    // TEMPORARY: Auth bypass — don't redirect on 401
     return response;
   },
 });
