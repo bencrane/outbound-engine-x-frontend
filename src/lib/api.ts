@@ -10,10 +10,6 @@ export interface User {
   auth_method: string;
 }
 
-export interface LoginResponse {
-  access_token: string;
-}
-
 export interface UserOrg {
   org_id: string;
   org_name: string;
@@ -27,6 +23,10 @@ export interface SwitchOrgResponse {
 
 export interface ApiError {
   detail: string;
+}
+
+interface LocalTokenResponse {
+  token?: string;
 }
 
 export function getToken(): string | null {
@@ -56,23 +56,62 @@ export function clearDataEngineToken(): void {
   localStorage.removeItem('dataengine_token');
 }
 
+async function parseApiError(response: Response, fallback: string): Promise<string> {
+  try {
+    const data = (await response.json()) as Record<string, unknown>;
+    const detail =
+      (typeof data.detail === 'string' && data.detail) ||
+      (typeof data.error === 'string' && data.error) ||
+      (typeof data.message === 'string' && data.message);
+    return detail || fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+export async function readTokenFromSessionCookie(): Promise<string | null> {
+  const response = await fetch('/api/auth/token', {
+    method: 'GET',
+    cache: 'no-store',
+  });
+  if (!response.ok) {
+    return null;
+  }
+
+  const data = (await response.json()) as LocalTokenResponse;
+  if (typeof data.token !== 'string' || data.token.length === 0) {
+    return null;
+  }
+  return data.token;
+}
+
 export async function login(email: string, password: string): Promise<string> {
-  // Login to Outbound Engine
-  const response = await fetch(`${API_BASE}/api/auth/login`, {
+  const signInResponse = await fetch('/api/auth/sign-in', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, password }),
+    cache: 'no-store',
   });
 
-  if (!response.ok) {
-    const error: ApiError = await response.json();
-    throw new Error(error.detail || 'Login failed');
+  if (!signInResponse.ok) {
+    throw new Error(await parseApiError(signInResponse, 'Login failed'));
   }
 
-  const { access_token }: LoginResponse = await response.json();
-  setToken(access_token);
+  const token = await readTokenFromSessionCookie();
+  if (!token) {
+    throw new Error('Login succeeded but session token was not available');
+  }
+  setToken(token);
 
-  // Also login to Data Engine with same credentials
+  const sessionCheckResponse = await fetch('/api/auth/session-check', {
+    method: 'GET',
+    cache: 'no-store',
+  });
+  if (!sessionCheckResponse.ok) {
+    throw new Error(await parseApiError(sessionCheckResponse, 'Session validation failed'));
+  }
+
+  // Keep existing hybrid behavior for Data Engine login.
   try {
     const dataEngineResponse = await fetch(`${DATAENGINE_API_BASE}/api/auth/login`, {
       method: 'POST',
@@ -91,14 +130,20 @@ export async function login(email: string, password: string): Promise<string> {
     console.warn('Data Engine login failed');
   }
 
-  return access_token;
+  return token;
 }
 
 export async function apiFetch<T>(
   path: string,
   options: RequestInit = {}
 ): Promise<T> {
-  const token = getToken();
+  let token = getToken();
+  if (!token && typeof window !== 'undefined') {
+    token = await readTokenFromSessionCookie();
+    if (token) {
+      setToken(token);
+    }
+  }
 
   const response = await fetch(`${API_BASE}${path}`, {
     ...options,
@@ -159,6 +204,12 @@ export async function switchOrg(orgId: string): Promise<string> {
 }
 
 export function logout(): void {
+  if (typeof window !== 'undefined') {
+    void fetch('/api/auth/logout', {
+      method: 'POST',
+      cache: 'no-store',
+    });
+  }
   clearToken();
   clearDataEngineToken();
 }

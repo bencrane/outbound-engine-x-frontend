@@ -12,6 +12,7 @@ export default function LoginPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { login } = useAuth();
   const router = useRouter();
+  const buildMarker = 'login-build-auth-parity-v1';
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -35,6 +36,9 @@ export default function LoginPage() {
           <h1 className="text-center text-2xl font-bold text-zinc-900 dark:text-white">
             Sign in to your account
           </h1>
+          <p className="mt-2 text-center text-xs text-zinc-500 dark:text-zinc-400">
+            {buildMarker}
+          </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">

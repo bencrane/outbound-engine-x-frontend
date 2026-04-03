@@ -18,6 +18,7 @@ import {
   getUserOrgs,
   switchOrg as apiSwitchOrg,
   getToken,
+  readTokenFromSessionCookie,
 } from './api';
 
 interface AuthContextType {
@@ -33,47 +34,75 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// TEMPORARY: Auth bypass — mock user, no login required
-const MOCK_USER: User = {
-  user_id: 'dev-bypass',
-  org_id: 'dev-org',
-  company_id: null,
-  role: 'admin',
-  permissions: ['*'],
-  auth_method: 'bypass',
-};
-
-const MOCK_ORGS: UserOrg[] = [
-  { org_id: 'dev-org', org_name: 'Dev Org', role: 'admin' },
-];
-
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(MOCK_USER);
-  const [orgs, setOrgs] = useState<UserOrg[]>(MOCK_ORGS);
-  const [isLoading] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
+  const [orgs, setOrgs] = useState<UserOrg[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const queryClient = useQueryClient();
 
   const refreshUser = useCallback(async () => {
-    // bypass: always use mock user
+    setIsLoading(true);
+    try {
+      let token = getToken();
+      if (!token) {
+        token = await readTokenFromSessionCookie();
+      }
+
+      if (!token) {
+        setUser(null);
+        setOrgs([]);
+        return;
+      }
+
+      const [currentUser, userOrgs] = await Promise.all([
+        getCurrentUser(),
+        getUserOrgs(),
+      ]);
+      setUser(currentUser);
+      setOrgs(userOrgs);
+    } catch {
+      apiLogout();
+      setUser(null);
+      setOrgs([]);
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
 
   useEffect(() => {
     refreshUser();
   }, [refreshUser]);
 
-  const login = useCallback(async (_email: string, _password: string) => {
-    // bypass: no-op
-  }, []);
+  const login = useCallback(async (email: string, password: string) => {
+    setIsLoading(true);
+    try {
+      await apiLogin(email, password);
+      await refreshUser();
+    } finally {
+      setIsLoading(false);
+    }
+  }, [refreshUser]);
 
   const logout = useCallback(() => {
-    // bypass: no-op
+    apiLogout();
+    setUser(null);
+    setOrgs([]);
     queryClient.clear();
+    if (typeof window !== 'undefined') {
+      window.location.assign('/login');
+    }
   }, [queryClient]);
 
-  const switchOrg = useCallback(async (_orgId: string) => {
-    // bypass: no-op
-    queryClient.clear();
-  }, [queryClient]);
+  const switchOrg = useCallback(async (orgId: string) => {
+    setIsLoading(true);
+    try {
+      await apiSwitchOrg(orgId);
+      await refreshUser();
+      queryClient.clear();
+    } finally {
+      setIsLoading(false);
+    }
+  }, [queryClient, refreshUser]);
 
   return (
     <AuthContext.Provider
